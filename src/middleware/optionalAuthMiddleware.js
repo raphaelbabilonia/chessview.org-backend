@@ -10,7 +10,7 @@ const optionalAuthMiddleware = async (req, res, next) => {
   if (!token) return next();
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || "change-me-in-production");
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = usingMemoryStore()
       ? publicUser(byId(store.users, payload.id))
       : await User.findById(payload.id).select("-passwordHash");
