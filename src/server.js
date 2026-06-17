@@ -17,7 +17,8 @@ if (process.env.JWT_SECRET.length < 32) {
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`Chess View API listening on port ${PORT}`);
+      console.log(`Chess View API listening on port ${PORT}
+Environment ***${process.env.NODE_ENV}***`);
     });
   })
   .catch((error) => {

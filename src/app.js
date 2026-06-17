@@ -9,6 +9,16 @@ const errorMiddleware = require("./middleware/errorMiddleware");
 
 const app = express();
 
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === "development") {
+    const start = Date.now();
+    res.on("finish", () => {
+      console.log(`${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+    });
+  }
+  next();
+});
+
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:3000",
@@ -21,7 +31,8 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    message: "Chess View API is running"
+    message: "Chess View API is running",
+    uptimeSeconds: process.uptime()
   });
 });
 
