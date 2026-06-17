@@ -2,7 +2,6 @@ const Event = require("../models/Event");
 const Section = require("../models/Section");
 const Player = require("../models/Player");
 const Pairing = require("../models/Pairing");
-const asyncHandler = require("../utils/asyncHandler");
 const { canManageEvent } = require("../utils/permissions");
 const { usingMemoryStore } = require("../config/db");
 const {
@@ -14,7 +13,7 @@ const {
   updateRecord
 } = require("../utils/memoryStore");
 
-const listPlayers = asyncHandler(async (req, res) => {
+const listPlayers = async (req, res) => {
   if (usingMemoryStore()) {
     const event = byEventOrSlug(req.params.eventId);
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
@@ -27,9 +26,9 @@ const listPlayers = asyncHandler(async (req, res) => {
   if (req.query.section) filter.section = req.query.section;
   const players = await Player.find(filter).sort({ lastName: 1, firstName: 1 }).lean();
   res.json({ success: true, data: players });
-});
+};
 
-const addPlayer = asyncHandler(async (req, res) => {
+const addPlayer = async (req, res) => {
   const { firstName, lastName, section } = req.body;
   if (!firstName || !lastName || !section) {
     return res.status(400).json({ success: false, message: "First name, last name, and section are required" });
@@ -60,9 +59,9 @@ const addPlayer = asyncHandler(async (req, res) => {
   }
   const player = await Player.create({ ...req.body, event: event._id, section: targetSection._id });
   res.status(201).json({ success: true, data: player });
-});
+};
 
-const updatePlayer = asyncHandler(async (req, res) => {
+const updatePlayer = async (req, res) => {
   if (usingMemoryStore()) {
     const player = byId(store.players, req.params.playerId);
     if (!player) return res.status(404).json({ success: false, message: "Player not found" });
@@ -82,9 +81,9 @@ const updatePlayer = asyncHandler(async (req, res) => {
   Object.assign(player, req.body);
   await player.save();
   res.json({ success: true, data: player });
-});
+};
 
-const deletePlayer = asyncHandler(async (req, res) => {
+const deletePlayer = async (req, res) => {
   if (usingMemoryStore()) {
     const player = byId(store.players, req.params.playerId);
     if (!player) return res.status(404).json({ success: false, message: "Player not found" });
@@ -109,7 +108,7 @@ const deletePlayer = asyncHandler(async (req, res) => {
     player.deleteOne()
   ]);
   res.json({ success: true, data: { id: req.params.playerId } });
-});
+};
 
 module.exports = {
   listPlayers,

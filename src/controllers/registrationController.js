@@ -2,7 +2,6 @@ const Event = require("../models/Event");
 const Section = require("../models/Section");
 const Registration = require("../models/Registration");
 const Player = require("../models/Player");
-const asyncHandler = require("../utils/asyncHandler");
 const { canManageEvent } = require("../utils/permissions");
 const { usingMemoryStore } = require("../config/db");
 const {
@@ -15,7 +14,7 @@ const {
   updateRecord
 } = require("../utils/memoryStore");
 
-const createEventRegistration = asyncHandler(async (req, res) => {
+const createEventRegistration = async (req, res) => {
   const { firstName, lastName, email, section } = req.body;
   if (!firstName || !lastName || !email || !section) {
     return res.status(400).json({ success: false, message: "First name, last name, email, and section are required" });
@@ -52,9 +51,9 @@ const createEventRegistration = asyncHandler(async (req, res) => {
     status: "pending"
   });
   res.status(201).json({ success: true, data: registration });
-});
+};
 
-const listRegistrations = asyncHandler(async (req, res) => {
+const listRegistrations = async (req, res) => {
   if (usingMemoryStore()) {
     const event = byEventOrSlug(req.params.eventId);
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
@@ -74,9 +73,9 @@ const listRegistrations = asyncHandler(async (req, res) => {
   }
   const registrations = await Registration.find({ event: event._id }).sort({ createdAt: -1 }).lean();
   res.json({ success: true, data: registrations });
-});
+};
 
-const updateRegistrationStatus = asyncHandler(async (req, res) => {
+const updateRegistrationStatus = async (req, res) => {
   const { status } = req.body;
   if (!["pending", "approved", "cancelled", "rejected"].includes(status)) {
     return res.status(400).json({ success: false, message: "Invalid registration status" });
@@ -128,7 +127,7 @@ const updateRegistrationStatus = asyncHandler(async (req, res) => {
     }
   }
   res.json({ success: true, data: registration });
-});
+};
 
 module.exports = {
   createEventRegistration,

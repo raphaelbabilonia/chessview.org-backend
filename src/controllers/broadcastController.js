@@ -7,7 +7,6 @@ const Device = require("../models/Device");
 const Event = require("../models/Event");
 const Frame = require("../models/Frame");
 const Pairing = require("../models/Pairing");
-const asyncHandler = require("../utils/asyncHandler");
 const { canManageEvent } = require("../utils/permissions");
 const { usingMemoryStore } = require("../config/db");
 const { byEventOrSlug, byId, clone, createRecord, store, updateRecord } = require("../utils/memoryStore");
@@ -92,7 +91,7 @@ const updateDeviceTelemetry = async (device, body) => {
   return device;
 };
 
-const createDevice = asyncHandler(async (req, res) => {
+const createDevice = async (req, res) => {
   const deviceId = (req.body.deviceId || randomDeviceId()).trim();
   const name = (req.body.name || deviceId).trim();
   const deviceSecret = req.body.deviceSecret || randomSecret();
@@ -142,18 +141,18 @@ const createDevice = asyncHandler(async (req, res) => {
       deviceSecret
     }
   });
-});
+};
 
-const listDevices = asyncHandler(async (req, res) => {
+const listDevices = async (req, res) => {
   if (usingMemoryStore()) {
     return res.json({ success: true, data: clone(store.devices.map(publicDevice)) });
   }
 
   const devices = await Device.find().sort({ createdAt: -1 }).lean();
   res.json({ success: true, data: devices.map(publicDevice) });
-});
+};
 
-const updateDevice = asyncHandler(async (req, res) => {
+const updateDevice = async (req, res) => {
   const allowedStatus = ["new", "active", "disabled"];
   const updates = {};
   if (req.body.name !== undefined) updates.name = String(req.body.name).trim();
@@ -177,9 +176,9 @@ const updateDevice = asyncHandler(async (req, res) => {
   });
   if (!device) return res.status(404).json({ success: false, message: "Device not found" });
   res.json({ success: true, data: publicDevice(device) });
-});
+};
 
-const startBroadcast = asyncHandler(async (req, res) => {
+const startBroadcast = async (req, res) => {
   const orientation = req.body.orientation || "unknown";
   if (!["whiteBottom", "blackBottom", "unknown"].includes(orientation)) {
     return res.status(400).json({ success: false, message: "Invalid orientation" });
@@ -253,9 +252,9 @@ const startBroadcast = asyncHandler(async (req, res) => {
     ? await BroadcastSession.findByIdAndUpdate(existing._id, data, { new: true })
     : await BroadcastSession.create(data);
   res.status(existing ? 200 : 201).json({ success: true, data: session });
-});
+};
 
-const endBroadcast = asyncHandler(async (req, res) => {
+const endBroadcast = async (req, res) => {
   if (usingMemoryStore()) {
     const session = byId(store.broadcastSessions, req.params.broadcastId);
     if (!session) return res.status(404).json({ success: false, message: "Broadcast not found" });
@@ -279,9 +278,9 @@ const endBroadcast = asyncHandler(async (req, res) => {
   session.endedAt = new Date();
   await session.save();
   res.json({ success: true, data: session });
-});
+};
 
-const getPairingBroadcast = asyncHandler(async (req, res) => {
+const getPairingBroadcast = async (req, res) => {
   if (usingMemoryStore()) {
     const sessions = store.broadcastSessions
       .filter((session) => session.pairing === req.params.pairingId)
@@ -298,9 +297,9 @@ const getPairingBroadcast = asyncHandler(async (req, res) => {
   const session = await BroadcastSession.findOne({ pairing: req.params.pairingId }).sort({ createdAt: -1 }).lean();
   const frames = session ? await Frame.find({ broadcast: session._id }).sort({ deviceSeq: 1 }).lean() : [];
   res.json({ success: true, data: { session, frames } });
-});
+};
 
-const listBroadcastFrames = asyncHandler(async (req, res) => {
+const listBroadcastFrames = async (req, res) => {
   if (usingMemoryStore()) {
     const frames = store.frames
       .filter((frame) => frame.broadcast === req.params.broadcastId)
@@ -310,17 +309,17 @@ const listBroadcastFrames = asyncHandler(async (req, res) => {
 
   const frames = await Frame.find({ broadcast: req.params.broadcastId }).sort({ deviceSeq: 1 }).lean();
   res.json({ success: true, data: frames });
-});
+};
 
-const deviceHeartbeat = asyncHandler(async (req, res) => {
+const deviceHeartbeat = async (req, res) => {
   const { device, error } = await authenticateDevice(req);
   if (error) return res.status(error.status).json({ success: false, message: error.message });
 
   const updated = await updateDeviceTelemetry(device, req.body);
   res.json({ success: true, data: publicDevice(updated) });
-});
+};
 
-const deviceFrameUpload = asyncHandler(async (req, res) => {
+const deviceFrameUpload = async (req, res) => {
   const { device, error } = await authenticateDevice(req);
   if (error) {
     removeUploadedFile(req.file);
@@ -432,7 +431,7 @@ const deviceFrameUpload = asyncHandler(async (req, res) => {
       status: frame.status
     }
   });
-});
+};
 
 module.exports = {
   uploadRoot,

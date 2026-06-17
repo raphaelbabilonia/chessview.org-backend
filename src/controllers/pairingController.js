@@ -2,7 +2,6 @@ const Event = require("../models/Event");
 const Round = require("../models/Round");
 const Pairing = require("../models/Pairing");
 const Player = require("../models/Player");
-const asyncHandler = require("../utils/asyncHandler");
 const { canManageEvent } = require("../utils/permissions");
 const { usingMemoryStore } = require("../config/db");
 const {
@@ -14,7 +13,7 @@ const {
   updateRecord
 } = require("../utils/memoryStore");
 
-const listPairings = asyncHandler(async (req, res) => {
+const listPairings = async (req, res) => {
   if (usingMemoryStore()) {
     const round = byId(store.rounds, req.params.roundId);
     if (!round) return res.status(404).json({ success: false, message: "Round not found" });
@@ -26,9 +25,9 @@ const listPairings = asyncHandler(async (req, res) => {
 
   const pairings = await Pairing.find({ round: req.params.roundId }).sort({ boardNumber: 1 }).lean();
   res.json({ success: true, data: pairings });
-});
+};
 
-const addPairing = asyncHandler(async (req, res) => {
+const addPairing = async (req, res) => {
   const { boardNumber, whitePlayer } = req.body;
   if (!boardNumber || !whitePlayer) {
     return res.status(400).json({ success: false, message: "Board number and white player are required" });
@@ -71,9 +70,9 @@ const addPairing = asyncHandler(async (req, res) => {
     round: round._id
   });
   res.status(201).json({ success: true, data: pairing });
-});
+};
 
-const updatePairingResult = asyncHandler(async (req, res) => {
+const updatePairingResult = async (req, res) => {
   const { result } = req.body;
   const allowed = [
     "pending",
@@ -109,7 +108,7 @@ const updatePairingResult = asyncHandler(async (req, res) => {
   if (req.body.notes !== undefined) pairing.notes = req.body.notes;
   await pairing.save();
   res.json({ success: true, data: pairing });
-});
+};
 
 module.exports = {
   listPairings,

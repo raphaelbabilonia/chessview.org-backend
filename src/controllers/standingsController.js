@@ -2,12 +2,11 @@ const Player = require("../models/Player");
 const Pairing = require("../models/Pairing");
 const Event = require("../models/Event");
 const Section = require("../models/Section");
-const asyncHandler = require("../utils/asyncHandler");
 const calculateStandings = require("../utils/calculateStandings");
 const { usingMemoryStore } = require("../config/db");
 const { byEventOrSlug, byId, store } = require("../utils/memoryStore");
 
-const standingsByEvent = asyncHandler(async (req, res) => {
+const standingsByEvent = async (req, res) => {
   if (usingMemoryStore()) {
     const event = byEventOrSlug(req.params.eventId);
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
@@ -23,9 +22,9 @@ const standingsByEvent = asyncHandler(async (req, res) => {
     Pairing.find({ event: event._id }).lean()
   ]);
   res.json({ success: true, data: calculateStandings(players, pairings) });
-});
+};
 
-const standingsBySection = asyncHandler(async (req, res) => {
+const standingsBySection = async (req, res) => {
   if (usingMemoryStore()) {
     const section = byId(store.sections, req.params.sectionId);
     if (!section) return res.status(404).json({ success: false, message: "Section not found" });
@@ -41,7 +40,7 @@ const standingsBySection = asyncHandler(async (req, res) => {
     Pairing.find({ section: section._id }).lean()
   ]);
   res.json({ success: true, data: calculateStandings(players, pairings) });
-});
+};
 
 module.exports = {
   standingsByEvent,

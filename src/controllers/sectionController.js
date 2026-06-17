@@ -3,7 +3,6 @@ const Section = require("../models/Section");
 const Player = require("../models/Player");
 const Round = require("../models/Round");
 const Pairing = require("../models/Pairing");
-const asyncHandler = require("../utils/asyncHandler");
 const { canManageEvent } = require("../utils/permissions");
 const { usingMemoryStore } = require("../config/db");
 const {
@@ -15,7 +14,7 @@ const {
   updateRecord
 } = require("../utils/memoryStore");
 
-const addSection = asyncHandler(async (req, res) => {
+const addSection = async (req, res) => {
   if (!req.body.name) {
     return res.status(400).json({ success: false, message: "Section name is required" });
   }
@@ -37,9 +36,9 @@ const addSection = asyncHandler(async (req, res) => {
   }
   const section = await Section.create({ ...req.body, event: event._id });
   res.status(201).json({ success: true, data: section });
-});
+};
 
-const updateSection = asyncHandler(async (req, res) => {
+const updateSection = async (req, res) => {
   if (usingMemoryStore()) {
     const section = byId(store.sections, req.params.sectionId);
     if (!section) return res.status(404).json({ success: false, message: "Section not found" });
@@ -59,9 +58,9 @@ const updateSection = asyncHandler(async (req, res) => {
   Object.assign(section, req.body);
   await section.save();
   res.json({ success: true, data: section });
-});
+};
 
-const deleteSection = asyncHandler(async (req, res) => {
+const deleteSection = async (req, res) => {
   if (usingMemoryStore()) {
     const section = byId(store.sections, req.params.sectionId);
     if (!section) return res.status(404).json({ success: false, message: "Section not found" });
@@ -90,7 +89,7 @@ const deleteSection = asyncHandler(async (req, res) => {
     section.deleteOne()
   ]);
   res.json({ success: true, data: { id: req.params.sectionId } });
-});
+};
 
 module.exports = {
   addSection,

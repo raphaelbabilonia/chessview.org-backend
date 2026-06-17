@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const User = require("../models/User");

@@ -5,7 +5,6 @@ const Player = require("../models/Player");
 const Round = require("../models/Round");
 const Pairing = require("../models/Pairing");
 const Registration = require("../models/Registration");
-const asyncHandler = require("../utils/asyncHandler");
 const calculateStandings = require("../utils/calculateStandings");
 const { canManageEvent } = require("../utils/permissions");
 const { usingMemoryStore } = require("../config/db");
@@ -49,7 +48,7 @@ const filterEvents = (events, query) => {
   });
 };
 
-const listEvents = asyncHandler(async (req, res) => {
+const listEvents = async (req, res) => {
   if (usingMemoryStore()) {
     let events = store.events;
     if (req.query.mine === "true") {
@@ -94,9 +93,9 @@ const listEvents = asyncHandler(async (req, res) => {
     }))
   );
   res.json({ success: true, data });
-});
+};
 
-const getEvent = asyncHandler(async (req, res) => {
+const getEvent = async (req, res) => {
   if (usingMemoryStore()) {
     const event = byEventOrSlug(req.params.id);
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
@@ -135,9 +134,9 @@ const getEvent = asyncHandler(async (req, res) => {
       standings: calculateStandings(players, pairings)
     }
   });
-});
+};
 
-const createEvent = asyncHandler(async (req, res) => {
+const createEvent = async (req, res) => {
   const { title, city, startDate, endDate } = req.body;
   if (!title || !city || !startDate || !endDate) {
     return res.status(400).json({ success: false, message: "Title, city, start date, and end date are required" });
@@ -155,9 +154,9 @@ const createEvent = asyncHandler(async (req, res) => {
     isPublic: Boolean(req.body.isPublic)
   });
   res.status(201).json({ success: true, data: event });
-});
+};
 
-const updateEvent = asyncHandler(async (req, res) => {
+const updateEvent = async (req, res) => {
   if (usingMemoryStore()) {
     const event = byEventOrSlug(req.params.id);
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
@@ -176,9 +175,9 @@ const updateEvent = asyncHandler(async (req, res) => {
   Object.assign(event, req.body);
   await event.save();
   res.json({ success: true, data: event });
-});
+};
 
-const deleteEvent = asyncHandler(async (req, res) => {
+const deleteEvent = async (req, res) => {
   if (usingMemoryStore()) {
     const event = byEventOrSlug(req.params.id);
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
@@ -209,7 +208,7 @@ const deleteEvent = asyncHandler(async (req, res) => {
     event.deleteOne()
   ]);
   res.json({ success: true, data: { id: req.params.id } });
-});
+};
 
 module.exports = {
   listEvents,
