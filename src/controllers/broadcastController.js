@@ -8,8 +8,6 @@ const Event = require("../models/Event");
 const Frame = require("../models/Frame");
 const Pairing = require("../models/Pairing");
 const { canManageEvent } = require("../utils/permissions");
-const { usingMemoryStore } = require("../config/db");
-const { byEventOrSlug, byId, clone, createRecord, store, updateRecord } = require("../utils/memoryStore");
 
 const uploadRoot = path.join(__dirname, "..", "..", "uploads", "broadcast");
 
@@ -39,9 +37,6 @@ const removeUploadedFile = (file) => {
 const imageUrlForFile = (file) => `/uploads/broadcast/${file.filename}`;
 
 const findDeviceByPublicId = async (deviceId) => {
-  if (usingMemoryStore()) {
-    return store.devices.find((device) => device.deviceId === deviceId);
-  }
   return Device.findOne({ deviceId });
 };
 
@@ -79,13 +74,6 @@ const updateDeviceTelemetry = async (device, body) => {
     lastRssi: numberOrNull(body.rssi)
   };
 
-  if (usingMemoryStore()) {
-    return updateRecord(device, {
-      ...data,
-      lastSeenAt: data.lastSeenAt.toISOString()
-    });
-  }
-
   Object.assign(device, data);
   await device.save();
   return device;
@@ -96,31 +84,6 @@ const createDevice = async (req, res) => {
   const name = (req.body.name || deviceId).trim();
   const deviceSecret = req.body.deviceSecret || randomSecret();
   const secretHash = await bcrypt.hash(deviceSecret, 10);
-
-  if (usingMemoryStore()) {
-    const existing = store.devices.find((device) => device.deviceId === deviceId);
-    if (existing) {
-      return res.status(409).json({ success: false, message: "Device ID already exists" });
-    }
-    const device = createRecord(store.devices, {
-      deviceId,
-      name,
-      secretHash,
-      firmwareVersion: req.body.firmwareVersion || "",
-      status: "new",
-      lastSeenAt: null,
-      lastBatteryMv: null,
-      lastRssi: null,
-      notes: req.body.notes || ""
-    });
-    return res.status(201).json({
-      success: true,
-      data: {
-        ...publicDevice(device),
-        deviceSecret
-      }
-    });
-  }
 
   const existing = await Device.findOne({ deviceId });
   if (existing) {
@@ -144,10 +107,6 @@ const createDevice = async (req, res) => {
 };
 
 const listDevices = async (req, res) => {
-  if (usingMemoryStore()) {
-    return res.json({ success: true, data: clone(store.devices.map(publicDevice)) });
-  }
-
   const devices = await Device.find().sort({ createdAt: -1 }).lean();
   res.json({ success: true, data: devices.map(publicDevice) });
 };
@@ -164,12 +123,6 @@ const updateDevice = async (req, res) => {
     updates.status = req.body.status;
   }
 
-  if (usingMemoryStore()) {
-    const device = store.devices.find((candidate) => candidate.deviceId === req.params.deviceId);
-    if (!device) return res.status(404).json({ success: false, message: "Device not found" });
-    return res.json({ success: true, data: clone(publicDevice(updateRecord(device, updates))) });
-  }
-
   const device = await Device.findOneAndUpdate({ deviceId: req.params.deviceId }, updates, {
     new: true,
     runValidators: true
@@ -182,39 +135,6 @@ const startBroadcast = async (req, res) => {
   const orientation = req.body.orientation || "unknown";
   if (!["whiteBottom", "blackBottom", "unknown"].includes(orientation)) {
     return res.status(400).json({ success: false, message: "Invalid orientation" });
-  }
-
-  if (usingMemoryStore()) {
-    const pairing = byId(store.pairings, req.params.pairingId);
-    if (!pairing) return res.status(404).json({ success: false, message: "Pairing not found" });
-    const event = byEventOrSlug(pairing.event);
-    if (!canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "You can only manage your own events" });
-    }
-    const device = store.devices.find((candidate) => candidate.deviceId === req.body.deviceId);
-    if (!device) return res.status(404).json({ success: false, message: "Device not found" });
-    if (device.status === "disabled") {
-      return res.status(400).json({ success: false, message: "Device is disabled" });
-    }
-
-    const existing = store.broadcastSessions.find(
-      (session) => session.pairing === pairing._id && ["setup", "live"].includes(session.status)
-    );
-    const data = {
-      event: pairing.event,
-      section: pairing.section,
-      round: pairing.round,
-      pairing: pairing._id,
-      boardNumber: pairing.boardNumber,
-      device: device._id,
-      status: "live",
-      startedAt: new Date().toISOString(),
-      endedAt: null,
-      orientation,
-      calibration: req.body.calibration || null
-    };
-    const session = existing ? updateRecord(existing, data) : createRecord(store.broadcastSessions, data);
-    return res.status(existing ? 200 : 201).json({ success: true, data: clone(session) });
   }
 
   const pairing = await Pairing.findById(req.params.pairingId);
@@ -255,19 +175,6 @@ const startBroadcast = async (req, res) => {
 };
 
 const endBroadcast = async (req, res) => {
-  if (usingMemoryStore()) {
-    const session = byId(store.broadcastSessions, req.params.broadcastId);
-    if (!session) return res.status(404).json({ success: false, message: "Broadcast not found" });
-    const event = byEventOrSlug(session.event);
-    if (!canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "You can only manage your own events" });
-    }
-    return res.json({
-      success: true,
-      data: clone(updateRecord(session, { status: "ended", endedAt: new Date().toISOString() }))
-    });
-  }
-
   const session = await BroadcastSession.findById(req.params.broadcastId);
   if (!session) return res.status(404).json({ success: false, message: "Broadcast not found" });
   const event = await Event.findById(session.event);
@@ -281,32 +188,12 @@ const endBroadcast = async (req, res) => {
 };
 
 const getPairingBroadcast = async (req, res) => {
-  if (usingMemoryStore()) {
-    const sessions = store.broadcastSessions
-      .filter((session) => session.pairing === req.params.pairingId)
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-    const session = sessions[0] || null;
-    const frames = session
-      ? store.frames
-          .filter((frame) => frame.broadcast === session._id)
-          .sort((a, b) => a.deviceSeq - b.deviceSeq)
-      : [];
-    return res.json({ success: true, data: { session: clone(session), frames: clone(frames) } });
-  }
-
   const session = await BroadcastSession.findOne({ pairing: req.params.pairingId }).sort({ createdAt: -1 }).lean();
   const frames = session ? await Frame.find({ broadcast: session._id }).sort({ deviceSeq: 1 }).lean() : [];
   res.json({ success: true, data: { session, frames } });
 };
 
 const listBroadcastFrames = async (req, res) => {
-  if (usingMemoryStore()) {
-    const frames = store.frames
-      .filter((frame) => frame.broadcast === req.params.broadcastId)
-      .sort((a, b) => a.deviceSeq - b.deviceSeq);
-    return res.json({ success: true, data: clone(frames) });
-  }
-
   const frames = await Frame.find({ broadcast: req.params.broadcastId }).sort({ deviceSeq: 1 }).lean();
   res.json({ success: true, data: frames });
 };
@@ -337,56 +224,6 @@ const deviceFrameUpload = async (req, res) => {
   }
 
   await updateDeviceTelemetry(device, req.body);
-
-  if (usingMemoryStore()) {
-    const session = byId(store.broadcastSessions, req.body.broadcastId);
-    if (!session || session.status !== "live") {
-      removeUploadedFile(req.file);
-      return res.status(400).json({ success: false, message: "Broadcast is not live" });
-    }
-    if (session.device !== device._id) {
-      removeUploadedFile(req.file);
-      return res.status(403).json({ success: false, message: "Device is not assigned to this broadcast" });
-    }
-    const existing = store.frames.find((frame) => frame.device === device._id && frame.deviceSeq === deviceSeq);
-    if (existing) {
-      removeUploadedFile(req.file);
-      return res.json({
-        success: true,
-        data: {
-          frameId: existing._id,
-          imageUrl: existing.imageUrl,
-          status: existing.status
-        }
-      });
-    }
-    const frame = createRecord(store.frames, {
-      broadcast: session._id,
-      device: device._id,
-      deviceSeq,
-      capturedAt: req.body.capturedAt || new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
-      imageUrl: imageUrlForFile(req.file),
-      thumbnailUrl: "",
-      mimeType: req.file.mimetype,
-      sizeBytes: req.file.size,
-      width: null,
-      height: null,
-      batteryMv: numberOrNull(req.body.batteryMv),
-      rssi: numberOrNull(req.body.rssi),
-      firmwareVersion: req.body.firmwareVersion || "",
-      status: "received",
-      rejectionReason: ""
-    });
-    return res.status(201).json({
-      success: true,
-      data: {
-        frameId: frame._id,
-        imageUrl: frame.imageUrl,
-        status: frame.status
-      }
-    });
-  }
 
   const session = await BroadcastSession.findById(req.body.broadcastId);
   if (!session || session.status !== "live") {

@@ -7,17 +7,7 @@ const Pairing = require("../models/Pairing");
 const Registration = require("../models/Registration");
 const calculateStandings = require("../utils/calculateStandings");
 const { canManageEvent } = require("../utils/permissions");
-const { usingMemoryStore } = require("../config/db");
-const {
-  byEventOrSlug,
-  clone,
-  createEvent: createMemoryEvent,
-  getEventBundle,
-  slugify,
-  store,
-  summarizeEvent,
-  updateRecord
-} = require("../utils/memoryStore");
+const slugify = require("../utils/slugify");
 
 const publicStatuses = ["published", "completed"];
 
@@ -49,24 +39,6 @@ const filterEvents = (events, query) => {
 };
 
 const listEvents = async (req, res) => {
-  if (usingMemoryStore()) {
-    let events = store.events;
-    if (req.query.mine === "true") {
-      if (!req.user) return res.status(401).json({ success: false, message: "Authentication required" });
-      events =
-        req.user.role === "admin"
-          ? events
-          : events.filter((event) => String(event.organizer) === String(req.user._id));
-    } else {
-      events = events.filter((event) => event.isPublic && publicStatuses.includes(event.status));
-    }
-
-    const data = filterEvents(events, req.query)
-      .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
-      .map(summarizeEvent);
-    return res.json({ success: true, data });
-  }
-
   const filter =
     req.query.mine === "true"
       ? req.user?.role === "admin"
@@ -96,15 +68,6 @@ const listEvents = async (req, res) => {
 };
 
 const getEvent = async (req, res) => {
-  if (usingMemoryStore()) {
-    const event = byEventOrSlug(req.params.id);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
-    if (!event.isPublic && !canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "This event is not public" });
-    }
-    return res.json({ success: true, data: getEventBundle(event) });
-  }
-
   const query = mongoose.Types.ObjectId.isValid(req.params.id)
     ? { _id: req.params.id }
     : { slug: req.params.id };
@@ -142,11 +105,6 @@ const createEvent = async (req, res) => {
     return res.status(400).json({ success: false, message: "Title, city, start date, and end date are required" });
   }
 
-  if (usingMemoryStore()) {
-    const event = createMemoryEvent(req.user, req.body);
-    return res.status(201).json({ success: true, data: clone(event) });
-  }
-
   const event = await Event.create({
     ...req.body,
     organizer: req.user._id,
@@ -157,16 +115,6 @@ const createEvent = async (req, res) => {
 };
 
 const updateEvent = async (req, res) => {
-  if (usingMemoryStore()) {
-    const event = byEventOrSlug(req.params.id);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
-    if (!canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "You can only edit your own events" });
-    }
-    const updated = updateRecord(event, req.body);
-    return res.json({ success: true, data: clone(updated) });
-  }
-
   const event = await Event.findById(req.params.id);
   if (!event) return res.status(404).json({ success: false, message: "Event not found" });
   if (!canManageEvent(req.user, event)) {
@@ -178,22 +126,6 @@ const updateEvent = async (req, res) => {
 };
 
 const deleteEvent = async (req, res) => {
-  if (usingMemoryStore()) {
-    const event = byEventOrSlug(req.params.id);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
-    if (!canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "You can only delete your own events" });
-    }
-    const eventId = event._id;
-    store.events = store.events.filter((item) => item._id !== eventId);
-    store.sections = store.sections.filter((item) => item.event !== eventId);
-    store.registrations = store.registrations.filter((item) => item.event !== eventId);
-    store.players = store.players.filter((item) => item.event !== eventId);
-    store.rounds = store.rounds.filter((item) => item.event !== eventId);
-    store.pairings = store.pairings.filter((item) => item.event !== eventId);
-    return res.json({ success: true, data: { id: eventId } });
-  }
-
   const event = await Event.findById(req.params.id);
   if (!event) return res.status(404).json({ success: false, message: "Event not found" });
   if (!canManageEvent(req.user, event)) {

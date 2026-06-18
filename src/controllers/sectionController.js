@@ -4,29 +4,10 @@ const Player = require("../models/Player");
 const Round = require("../models/Round");
 const Pairing = require("../models/Pairing");
 const { canManageEvent } = require("../utils/permissions");
-const { usingMemoryStore } = require("../config/db");
-const {
-  byEventOrSlug,
-  byId,
-  clone,
-  createSection,
-  store,
-  updateRecord
-} = require("../utils/memoryStore");
 
 const addSection = async (req, res) => {
   if (!req.body.name) {
     return res.status(400).json({ success: false, message: "Section name is required" });
-  }
-
-  if (usingMemoryStore()) {
-    const event = byEventOrSlug(req.params.eventId);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
-    if (!canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "You can only manage your own events" });
-    }
-    const section = createSection(event, req.body);
-    return res.status(201).json({ success: true, data: clone(section) });
   }
 
   const event = await Event.findById(req.params.eventId);
@@ -39,16 +20,6 @@ const addSection = async (req, res) => {
 };
 
 const updateSection = async (req, res) => {
-  if (usingMemoryStore()) {
-    const section = byId(store.sections, req.params.sectionId);
-    if (!section) return res.status(404).json({ success: false, message: "Section not found" });
-    const event = byEventOrSlug(section.event);
-    if (!canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "You can only manage your own events" });
-    }
-    return res.json({ success: true, data: clone(updateRecord(section, req.body)) });
-  }
-
   const section = await Section.findById(req.params.sectionId);
   if (!section) return res.status(404).json({ success: false, message: "Section not found" });
   const event = await Event.findById(section.event);
@@ -61,21 +32,6 @@ const updateSection = async (req, res) => {
 };
 
 const deleteSection = async (req, res) => {
-  if (usingMemoryStore()) {
-    const section = byId(store.sections, req.params.sectionId);
-    if (!section) return res.status(404).json({ success: false, message: "Section not found" });
-    const event = byEventOrSlug(section.event);
-    if (!canManageEvent(req.user, event)) {
-      return res.status(403).json({ success: false, message: "You can only manage your own events" });
-    }
-    const id = section._id;
-    store.sections = store.sections.filter((item) => item._id !== id);
-    store.players = store.players.filter((item) => item.section !== id);
-    store.rounds = store.rounds.filter((item) => item.section !== id);
-    store.pairings = store.pairings.filter((item) => item.section !== id);
-    return res.json({ success: true, data: { id } });
-  }
-
   const section = await Section.findById(req.params.sectionId);
   if (!section) return res.status(404).json({ success: false, message: "Section not found" });
   const event = await Event.findById(section.event);

@@ -15,11 +15,11 @@ The frontend lives at [raphaelbabilonia/chessview.org-frontend](https://github.c
 - Sections, registrations, players, rounds, pairings, results, and standings.
 - Manual pairings for the MVP.
 - Broadcast/device endpoints for experimental camera frame upload workflows.
-- MongoDB persistence with a local memory fallback for development demos.
+- MongoDB persistence (Mongoose); tests run against an ephemeral in-memory MongoDB.
 
 ## Tech Stack
 
-- Node.js
+- Node.js (>= 20)
 - Express
 - MongoDB
 - Mongoose
@@ -31,11 +31,21 @@ The frontend lives at [raphaelbabilonia/chessview.org-frontend](https://github.c
 
 ## Local Setup
 
+A running MongoDB is required (`MONGO_URI`); there is no in-memory fallback. The
+quickest way to get one locally:
+
+```bash
+docker run -d --name chessview-mongo -p 27017:27017 mongo:8
+```
+
+Then:
+
 ```bash
 npm install
 cp .env.example .env
-npm run seed
+npm run seed     # requires a reachable MongoDB at MONGO_URI
 npm run dev
+npm test         # runs the test suite against an ephemeral in-memory MongoDB
 ```
 
 The API runs at `http://localhost:5000/api` by default.
@@ -51,7 +61,6 @@ JWT_SECRET=change-me-in-production
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:3000
 NODE_ENV=development
-MEMORY_STORE=false
 ```
 
 Use a strong `JWT_SECRET` in any shared, staging, or production environment. Do not commit `.env`.

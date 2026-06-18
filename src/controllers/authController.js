@@ -1,8 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const { usingMemoryStore } = require("../config/db");
-const { byId, createUser, publicUser, store } = require("../utils/memoryStore");
 
 const signToken = (user) => {
   return jwt.sign(
@@ -15,8 +13,15 @@ const signToken = (user) => {
   );
 };
 
+const publicUser = (user) => {
+  if (!user) return null;
+  const value = user.toObject ? user.toObject() : { ...user };
+  delete value.passwordHash;
+  return value;
+};
+
 const sendAuth = (res, user) => {
-  const safeUser = publicUser(user.toObject ? user.toObject() : user);
+  const safeUser = publicUser(user);
   res.json({
     success: true,
     data: {
@@ -35,15 +40,6 @@ const register = async (req, res) => {
     return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
   }
 
-  if (usingMemoryStore()) {
-    const existing = store.users.find((user) => user.email === email.toLowerCase());
-    if (existing) {
-      return res.status(409).json({ success: false, message: "Email is already registered" });
-    }
-    const user = await createUser({ name, email, password, role: "player" });
-    return sendAuth(res, user);
-  }
-
   const existing = await User.findOne({ email: email.toLowerCase() });
   if (existing) {
     return res.status(409).json({ success: false, message: "Email is already registered" });
@@ -60,10 +56,7 @@ const login = async (req, res) => {
     return res.status(400).json({ success: false, message: "Email and password are required" });
   }
 
-  const user = usingMemoryStore()
-    ? store.users.find((candidate) => candidate.email === email.toLowerCase())
-    : await User.findOne({ email: email.toLowerCase() });
-
+  const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     return res.status(401).json({ success: false, message: "Invalid credentials" });
   }
@@ -77,8 +70,7 @@ const login = async (req, res) => {
 };
 
 const me = async (req, res) => {
-  const user = usingMemoryStore() ? publicUser(byId(store.users, req.user._id)) : req.user;
-  res.json({ success: true, data: user });
+  res.json({ success: true, data: req.user });
 };
 
 module.exports = {
