@@ -12,11 +12,7 @@ const listPlayers = async (req, res) => {
 };
 
 const addPlayer = async (req, res) => {
-  const { firstName, lastName, section } = req.body;
-  if (!firstName || !lastName || !section) {
-    return res.status(400).json({ success: false, message: "First name, last name, and section are required" });
-  }
-
+  const { section } = req.body;
   const [event, targetSection] = await Promise.all([
     Event.findById(req.params.eventId),
     Section.findById(section)

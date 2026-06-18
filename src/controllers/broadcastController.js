@@ -112,16 +112,10 @@ const listDevices = async (req, res) => {
 };
 
 const updateDevice = async (req, res) => {
-  const allowedStatus = ["new", "active", "disabled"];
   const updates = {};
-  if (req.body.name !== undefined) updates.name = String(req.body.name).trim();
-  if (req.body.notes !== undefined) updates.notes = String(req.body.notes);
-  if (req.body.status !== undefined) {
-    if (!allowedStatus.includes(req.body.status)) {
-      return res.status(400).json({ success: false, message: "Invalid device status" });
-    }
-    updates.status = req.body.status;
-  }
+  if (req.body.name !== undefined) updates.name = req.body.name.trim();
+  if (req.body.notes !== undefined) updates.notes = req.body.notes;
+  if (req.body.status !== undefined) updates.status = req.body.status;
 
   const device = await Device.findOneAndUpdate({ deviceId: req.params.deviceId }, updates, {
     new: true,
@@ -133,10 +127,6 @@ const updateDevice = async (req, res) => {
 
 const startBroadcast = async (req, res) => {
   const orientation = req.body.orientation || "unknown";
-  if (!["whiteBottom", "blackBottom", "unknown"].includes(orientation)) {
-    return res.status(400).json({ success: false, message: "Invalid orientation" });
-  }
-
   const pairing = await Pairing.findById(req.params.pairingId);
   if (!pairing) return res.status(404).json({ success: false, message: "Pairing not found" });
   const [event, device] = await Promise.all([

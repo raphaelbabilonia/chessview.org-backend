@@ -11,11 +11,7 @@ const listRounds = async (req, res) => {
 };
 
 const addRound = async (req, res) => {
-  const { section, number } = req.body;
-  if (!section || !number) {
-    return res.status(400).json({ success: false, message: "Section and round number are required" });
-  }
-
+  const { section } = req.body;
   const [event, targetSection] = await Promise.all([
     Event.findById(req.params.eventId),
     Section.findById(section)

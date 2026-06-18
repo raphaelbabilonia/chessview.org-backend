@@ -15,6 +15,7 @@ The frontend lives at [raphaelbabilonia/chessview.org-frontend](https://github.c
 - Sections, registrations, players, rounds, pairings, results, and standings.
 - Manual pairings for the MVP.
 - Broadcast/device endpoints for experimental camera frame upload workflows.
+- Request validation with zod at the HTTP boundary (schemas double as mass-assignment allowlists).
 - MongoDB persistence (Mongoose); tests run against an ephemeral in-memory MongoDB.
 
 ## Tech Stack
@@ -25,6 +26,7 @@ The frontend lives at [raphaelbabilonia/chessview.org-frontend](https://github.c
 - Mongoose
 - JWT
 - bcryptjs
+- zod (input validation)
 - dotenv
 - cors
 - multer

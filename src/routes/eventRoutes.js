@@ -9,6 +9,8 @@ const {
 const authMiddleware = require("../middleware/authMiddleware");
 const optionalAuthMiddleware = require("../middleware/optionalAuthMiddleware");
 const requireRole = require("../middleware/roleMiddleware");
+const validate = require("../middleware/validate");
+const { createEventSchema, updateEventSchema } = require("../validation/eventSchemas");
 
 const router = express.Router();
 
@@ -19,8 +21,8 @@ const authWhenMine = (req, res, next) => {
 
 router.get("/", authWhenMine, listEvents);
 router.get("/:id", optionalAuthMiddleware, getEvent);
-router.post("/", authMiddleware, requireRole("organizer", "admin"), createEvent);
-router.patch("/:id", authMiddleware, requireRole("organizer", "admin"), updateEvent);
+router.post("/", authMiddleware, requireRole("organizer", "admin"), validate(createEventSchema), createEvent);
+router.patch("/:id", authMiddleware, requireRole("organizer", "admin"), validate(updateEventSchema), updateEvent);
 router.delete("/:id", authMiddleware, requireRole("organizer", "admin"), deleteEvent);
 
 module.exports = router;

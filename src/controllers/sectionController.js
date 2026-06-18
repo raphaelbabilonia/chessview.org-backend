@@ -6,10 +6,6 @@ const Pairing = require("../models/Pairing");
 const { canManageEvent } = require("../utils/permissions");
 
 const addSection = async (req, res) => {
-  if (!req.body.name) {
-    return res.status(400).json({ success: false, message: "Section name is required" });
-  }
-
   const event = await Event.findById(req.params.eventId);
   if (!event) return res.status(404).json({ success: false, message: "Event not found" });
   if (!canManageEvent(req.user, event)) {

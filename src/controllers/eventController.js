@@ -100,16 +100,10 @@ const getEvent = async (req, res) => {
 };
 
 const createEvent = async (req, res) => {
-  const { title, city, startDate, endDate } = req.body;
-  if (!title || !city || !startDate || !endDate) {
-    return res.status(400).json({ success: false, message: "Title, city, start date, and end date are required" });
-  }
-
   const event = await Event.create({
     ...req.body,
     organizer: req.user._id,
-    slug: await makeSlug(title),
-    isPublic: Boolean(req.body.isPublic)
+    slug: await makeSlug(req.body.title)
   });
   res.status(201).json({ success: true, data: event });
 };

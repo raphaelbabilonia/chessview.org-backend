@@ -20,7 +20,8 @@
     "express": "^5",
     "jsonwebtoken": "^9",
     "mongoose": "^8",
-    "multer": "^2"
+    "multer": "^2",
+    "zod": "^4"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11",

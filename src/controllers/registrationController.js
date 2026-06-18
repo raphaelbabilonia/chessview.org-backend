@@ -5,11 +5,7 @@ const Player = require("../models/Player");
 const { canManageEvent } = require("../utils/permissions");
 
 const createEventRegistration = async (req, res) => {
-  const { firstName, lastName, email, section } = req.body;
-  if (!firstName || !lastName || !email || !section) {
-    return res.status(400).json({ success: false, message: "First name, last name, email, and section are required" });
-  }
-
+  const { section } = req.body;
   const [event, targetSection] = await Promise.all([
     Event.findById(req.params.eventId),
     Section.findById(section)
@@ -42,10 +38,6 @@ const listRegistrations = async (req, res) => {
 
 const updateRegistrationStatus = async (req, res) => {
   const { status } = req.body;
-  if (!["pending", "approved", "cancelled", "rejected"].includes(status)) {
-    return res.status(400).json({ success: false, message: "Invalid registration status" });
-  }
-
   const registration = await Registration.findById(req.params.registrationId);
   if (!registration) return res.status(404).json({ success: false, message: "Registration not found" });
   const [event, section] = await Promise.all([

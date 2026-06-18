@@ -10,11 +10,7 @@ const listPairings = async (req, res) => {
 };
 
 const addPairing = async (req, res) => {
-  const { boardNumber, whitePlayer } = req.body;
-  if (!boardNumber || !whitePlayer) {
-    return res.status(400).json({ success: false, message: "Board number and white player are required" });
-  }
-
+  const { whitePlayer } = req.body;
   const round = await Round.findById(req.params.roundId);
   if (!round) return res.status(404).json({ success: false, message: "Round not found" });
   const [event, white, black] = await Promise.all([
@@ -39,20 +35,6 @@ const addPairing = async (req, res) => {
 
 const updatePairingResult = async (req, res) => {
   const { result } = req.body;
-  const allowed = [
-    "pending",
-    "1-0",
-    "0-1",
-    "1/2-1/2",
-    "bye-white",
-    "bye-black",
-    "forfeit-white",
-    "forfeit-black"
-  ];
-  if (!allowed.includes(result)) {
-    return res.status(400).json({ success: false, message: "Invalid result" });
-  }
-
   const pairing = await Pairing.findById(req.params.pairingId);
   if (!pairing) return res.status(404).json({ success: false, message: "Pairing not found" });
   const event = await Event.findById(pairing.event);

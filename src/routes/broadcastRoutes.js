@@ -16,6 +16,12 @@ const {
 } = require("../controllers/broadcastController");
 const authMiddleware = require("../middleware/authMiddleware");
 const requireRole = require("../middleware/roleMiddleware");
+const validate = require("../middleware/validate");
+const {
+  createDeviceSchema,
+  updateDeviceSchema,
+  startBroadcastSchema
+} = require("../validation/deviceSchemas");
 
 fs.mkdirSync(uploadRoot, { recursive: true });
 
@@ -41,11 +47,11 @@ const upload = multer({
 const router = express.Router();
 const manageRoles = [authMiddleware, requireRole("organizer", "admin")];
 
-router.post("/devices", ...manageRoles, createDevice);
+router.post("/devices", ...manageRoles, validate(createDeviceSchema), createDevice);
 router.get("/devices", ...manageRoles, listDevices);
-router.patch("/devices/:deviceId", ...manageRoles, updateDevice);
+router.patch("/devices/:deviceId", ...manageRoles, validate(updateDeviceSchema), updateDevice);
 
-router.post("/pairings/:pairingId/broadcast/start", ...manageRoles, startBroadcast);
+router.post("/pairings/:pairingId/broadcast/start", ...manageRoles, validate(startBroadcastSchema), startBroadcast);
 router.post("/broadcasts/:broadcastId/end", ...manageRoles, endBroadcast);
 router.get("/pairings/:pairingId/broadcast", getPairingBroadcast);
 router.get("/broadcasts/:broadcastId/frames", listBroadcastFrames);

@@ -15,30 +15,39 @@ const { addSection, deleteSection, updateSection } = require("../controllers/sec
 const { standingsByEvent, standingsBySection } = require("../controllers/standingsController");
 const authMiddleware = require("../middleware/authMiddleware");
 const requireRole = require("../middleware/roleMiddleware");
+const validate = require("../middleware/validate");
+const { createSectionSchema, updateSectionSchema } = require("../validation/sectionSchemas");
+const { createRoundSchema, updateRoundSchema } = require("../validation/roundSchemas");
+const { createPlayerSchema, updatePlayerSchema } = require("../validation/playerSchemas");
+const { createPairingSchema, updatePairingResultSchema } = require("../validation/pairingSchemas");
+const {
+  createRegistrationSchema,
+  updateRegistrationStatusSchema
+} = require("../validation/registrationSchemas");
 
 const router = express.Router();
 const manageRoles = [authMiddleware, requireRole("organizer", "admin")];
 
-router.post("/events/:eventId/sections", ...manageRoles, addSection);
-router.patch("/sections/:sectionId", ...manageRoles, updateSection);
+router.post("/events/:eventId/sections", ...manageRoles, validate(createSectionSchema), addSection);
+router.patch("/sections/:sectionId", ...manageRoles, validate(updateSectionSchema), updateSection);
 router.delete("/sections/:sectionId", ...manageRoles, deleteSection);
 
-router.post("/events/:eventId/registrations", authMiddleware, createEventRegistration);
+router.post("/events/:eventId/registrations", authMiddleware, validate(createRegistrationSchema), createEventRegistration);
 router.get("/events/:eventId/registrations", ...manageRoles, listRegistrations);
-router.patch("/registrations/:registrationId/status", ...manageRoles, updateRegistrationStatus);
+router.patch("/registrations/:registrationId/status", ...manageRoles, validate(updateRegistrationStatusSchema), updateRegistrationStatus);
 
 router.get("/events/:eventId/players", listPlayers);
-router.post("/events/:eventId/players", ...manageRoles, addPlayer);
-router.patch("/players/:playerId", ...manageRoles, updatePlayer);
+router.post("/events/:eventId/players", ...manageRoles, validate(createPlayerSchema), addPlayer);
+router.patch("/players/:playerId", ...manageRoles, validate(updatePlayerSchema), updatePlayer);
 router.delete("/players/:playerId", ...manageRoles, deletePlayer);
 
 router.get("/events/:eventId/rounds", listRounds);
-router.post("/events/:eventId/rounds", ...manageRoles, addRound);
-router.patch("/rounds/:roundId", ...manageRoles, updateRound);
+router.post("/events/:eventId/rounds", ...manageRoles, validate(createRoundSchema), addRound);
+router.patch("/rounds/:roundId", ...manageRoles, validate(updateRoundSchema), updateRound);
 
 router.get("/rounds/:roundId/pairings", listPairings);
-router.post("/rounds/:roundId/pairings", ...manageRoles, addPairing);
-router.patch("/pairings/:pairingId/result", ...manageRoles, updatePairingResult);
+router.post("/rounds/:roundId/pairings", ...manageRoles, validate(createPairingSchema), addPairing);
+router.patch("/pairings/:pairingId/result", ...manageRoles, validate(updatePairingResultSchema), updatePairingResult);
 
 router.get("/events/:eventId/standings", standingsByEvent);
 router.get("/sections/:sectionId/standings", standingsBySection);
