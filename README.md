@@ -1,5 +1,8 @@
 # ChessView.org Backend
 
+[![CI](https://github.com/raphaelbabilonia/chessview.org-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/raphaelbabilonia/chessview.org-backend/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/raphaelbabilonia/chessview.org-backend/graph/badge.svg)](https://codecov.io/gh/raphaelbabilonia/chessview.org-backend)
+
 ChessView is an open source platform for making physical chess events easier to publish, follow, and manage. This repository contains the Express API for the ChessView MVP.
 
 The founding idea is to help clubs, academies, organizers, players, and spectators bring more over-the-board chess activity online. The current backend supports event management, registrations, manual tournament workflows, public pairings/results/standings, and early broadcast/device APIs for future camera-assisted game reconstruction.
@@ -48,6 +51,7 @@ cp .env.example .env
 npm run seed     # requires a reachable MongoDB at MONGO_URI
 npm run dev
 npm test         # runs the test suite against an ephemeral in-memory MongoDB
+npm run coverage # same suite, with a c8 coverage report (text + coverage/lcov.info)
 ```
 
 The API runs at `http://localhost:5000/api` by default.

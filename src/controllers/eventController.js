@@ -78,11 +78,11 @@ const getEvent = async (req, res) => {
   }
 
   const [sections, players, rounds, pairings, registrations] = await Promise.all([
-    Section.find({ event: event._id }).lean(),
-    Player.find({ event: event._id }).lean(),
+    Section.find({ event: event._id }).sort({ _id: 1 }).lean(),
+    Player.find({ event: event._id }).sort({ _id: 1 }).lean(),
     Round.find({ event: event._id }).sort({ number: 1 }).lean(),
-    Pairing.find({ event: event._id }).lean(),
-    Registration.find({ event: event._id }).lean()
+    Pairing.find({ event: event._id }).sort({ _id: 1 }).lean(),
+    Registration.find({ event: event._id }).sort({ _id: 1 }).lean()
   ]);
 
   res.json({

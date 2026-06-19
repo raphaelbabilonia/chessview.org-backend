@@ -11,7 +11,8 @@
     "start": "node src/server.js",
     "seed": "node src/scripts/seed.js",
     "test": "node --test",
-    "smoke:broadcast": "node --test test/broadcast.test.js"
+    "coverage": "c8 --reporter=text --reporter=lcov node --test",
+    "smoke:broadcast": "node --test test/integration/broadcastController.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3",
@@ -24,6 +25,7 @@
     "zod": "^4"
   },
   "devDependencies": {
+    "c8": "^10",
     "mongodb-memory-server": "^11",
     "nodemon": "^3"
   }
