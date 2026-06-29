@@ -13,6 +13,13 @@ const slugify = require("../utils/slugify");
 const publicStatuses = ["published", "completed"];
 const MAX_PUBLIC_LIMIT = 100;
 
+const startOfTodayUtc = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+};
+
+const booleanQuery = (value) => String(value || "").toLowerCase() === "true";
+
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -85,8 +92,10 @@ const filterEvents = (events, query) => {
 
 const listEvents = async (req, res) => {
   const pagination = paginationFromQuery(req.query);
+  const mine = req.query.mine === "true";
+  const explicitDateWindow = req.query.activeFrom || req.query.from || req.query.to;
   const filter =
-    req.query.mine === "true"
+    mine
       ? req.user?.role === "admin"
         ? {}
         : { organizer: req.user?._id }
@@ -99,6 +108,9 @@ const listEvents = async (req, res) => {
   if (req.query.status) filter.status = req.query.status;
   if (req.query.activeFrom) {
     filter.endDate = { $gte: new Date(req.query.activeFrom) };
+  }
+  if (!mine && !booleanQuery(req.query.includePast) && !explicitDateWindow) {
+    filter.endDate = { $gte: startOfTodayUtc() };
   }
   if (req.query.from || req.query.to) {
     filter.startDate = {};

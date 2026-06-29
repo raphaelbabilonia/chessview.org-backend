@@ -22,7 +22,7 @@ const DEFAULT_SCRAPE_SOURCES = [
       priority: 1,
       endpoint: "https://vesus.org",
       apiEndpoint: "https://api.vesus.org/graphql",
-      timings: ["INPROGRESS", "FUTURE", "ARCHIVED"],
+      timings: ["INPROGRESS", "FUTURE"],
       limit: 20,
       pageSize: 20,
       rateLimitMs: 1200,
@@ -340,24 +340,38 @@ const compactJob = (job) => ({
   error: job.error
 });
 
+const shouldMigrateVesusDefaultTimings = (source) => {
+  if (source?.key !== "vesus-public") return false;
+  const timings = source.config?.timings;
+  if (!Array.isArray(timings)) return false;
+  const normalized = timings.map((timing) => String(timing).toUpperCase()).sort();
+  return normalized.length === 3 && normalized.join(",") === "ARCHIVED,FUTURE,INPROGRESS";
+};
+
 const ensureDefaultScrapeSources = async () => {
   assertPersistentStore();
 
   const sources = [];
 
   for (const defaultSource of DEFAULT_SCRAPE_SOURCES) {
-    sources.push(
-      await ScrapeSource.findOneAndUpdate(
-        { key: defaultSource.key },
-        {
-          $setOnInsert: defaultSource
-        },
-        {
-          new: true,
-          upsert: true
-        }
-      )
+    const source = await ScrapeSource.findOneAndUpdate(
+      { key: defaultSource.key },
+      {
+        $setOnInsert: defaultSource
+      },
+      {
+        new: true,
+        upsert: true
+      }
     );
+    if (shouldMigrateVesusDefaultTimings(source)) {
+      source.config = {
+        ...source.config,
+        timings: defaultSource.config.timings
+      };
+      await source.save();
+    }
+    sources.push(source);
   }
 
   return sources;

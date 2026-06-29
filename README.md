@@ -100,7 +100,7 @@ Default source setup creates:
 
 | Source | Type | Default | Notes |
 | --- | --- | --- | --- |
-| Vesus - Public | `vesus` | enabled | Public GraphQL/event-stream API from vesus.org. Imports event metadata, regulations, players/standings, tie-breaks, rounds, byes/forfeits, and Vesus Pairings results when publicly published. |
+| Vesus - Public | `vesus` | enabled | Public GraphQL/event-stream API from vesus.org. Imports current/future event metadata by default, plus regulations, players/standings, tie-breaks, rounds, byes/forfeits, and Vesus Pairings results when publicly published. Archived Vesus imports must be requested explicitly for audits/backfills. |
 | Lichess Broadcasts - World | `lichess-broadcasts` | enabled | Structured API. Good global live/broadcast coverage. |
 | ChessReg - USA | `chessreg-api` | enabled | Public API, good North America source. |
 | Info64 - Spain and Latin America | `info64` | enabled | Public tournament pages with dates, locations, official/results links, attribution, and robots-aware rate limiting. |
@@ -144,6 +144,12 @@ npm run scrape:sources -- --source info64-spain-latam --mode apply --limit 10
 npm run scrape:sources -- --source chessarbiter-poland --mode apply --limit 10
 npm run scrape:sources -- --source aicf-india --mode apply --limit 10
 npm run scrape:sources -- --run-due --mode apply
+```
+
+Vesus defaults to `INPROGRESS,FUTURE` so public ingestion does not fill the main catalog with old tournaments. Use archived pulls only for explicit audit/backfill work:
+
+```bash
+npm run scrape:sources -- --source vesus-public --mode dry-run --limit 10 --timings ARCHIVED
 ```
 
 Before enabling a worker or a new source, run:
@@ -239,6 +245,8 @@ These credentials are local only. Never use demo secrets in production.
 ## API Overview
 
 All app routes are served under `/api`.
+
+Public event lists hide past events by default. To request archive-style results, pass `includePast=true`, or provide an explicit date window with `from`, `to`, or `activeFrom`.
 
 - `GET /api/health`
 - `POST /api/auth/register`

@@ -9,7 +9,7 @@ const { mapFideRatedTournament } = require("../src/scrapers/fideRatedTournaments
 const { mapInfo64Detail, parseInfo64Players, parseInfo64RoundPairings, parseInfo64Standings } = require("../src/scrapers/info64");
 const { mapBroadcastToTournament, parseLichessPgn, parseLocation } = require("../src/scrapers/lichessBroadcasts");
 const { inferRatingType, inferTimeControl, parseEnglishDateRange } = require("../src/scrapers/tournamentUtils");
-const { mapVesusEventTournament, mapVesusPairingsSnapshot, shortKeyFromUrl } = require("../src/scrapers/vesus");
+const { mapVesusEventTournament, mapVesusPairingsSnapshot, normalizeTimings, shortKeyFromUrl } = require("../src/scrapers/vesus");
 const {
   buildDedupeKey,
   dataQualityScore,
@@ -138,6 +138,11 @@ test("maps Vesus public event cards into tournament metadata", () => {
   assert.equal(mapped.sourceUrl, "https://vesus.org/tournament/itwv9mQu");
   assert.equal(mapped.resultsUrl, "https://vesus.org/pairings/itwv9mQu");
   assert.equal(mapped.originalId, "vesus:tournament:itwv9mQu");
+});
+
+test("uses current and future Vesus timings by default", () => {
+  assert.deepEqual(normalizeTimings(), ["INPROGRESS", "FUTURE"]);
+  assert.deepEqual(normalizeTimings("ARCHIVED"), ["ARCHIVED"]);
 });
 
 test("maps Vesus pairings stream snapshots into players, rounds, pairings, and documents", () => {

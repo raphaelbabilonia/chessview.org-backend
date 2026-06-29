@@ -1,6 +1,9 @@
 const { describe, it, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { startTestServer, stopTestServer, reseed, makeClient, login } = require("../../test-helpers/server");
+const Event = require("../../src/models/Event");
+
+const daysFromNow = (days) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
 describe("eventController", () => {
   let ctx, client, token;
@@ -16,14 +19,35 @@ describe("eventController", () => {
   });
 
   describe("GET /api/events", () => {
-    it("lists only public, published/completed events to anonymous callers", async () => {
+    it("lists only active public events to anonymous callers by default", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        { startDate: daysFromNow(5), endDate: daysFromNow(6), status: "published", isPublic: true }
+      );
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        { startDate: daysFromNow(-6), endDate: daysFromNow(-5), status: "completed", isPublic: true }
+      );
+
       const res = await client.request("/api/events");
       assert.equal(res.status, 200);
       const slugs = res.body.data.map((e) => e.slug);
       assert.ok(slugs.includes("chess-view-open-cuneo"), "published+public shown");
-      assert.ok(slugs.includes("sunday-family-chess-festival"), "completed+public shown");
+      assert.ok(!slugs.includes("sunday-family-chess-festival"), "past public event hidden by default");
       assert.ok(!slugs.includes("junior-rapid-challenge"), "draft+private hidden");
       assert.ok("sectionsCount" in res.body.data[0], "list carries denormalized counts");
+    });
+
+    it("can include past public events when explicitly requested", async () => {
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        { startDate: daysFromNow(-6), endDate: daysFromNow(-5), status: "completed", isPublic: true }
+      );
+
+      const res = await client.request("/api/events?includePast=true");
+      assert.equal(res.status, 200);
+      const slugs = res.body.data.map((e) => e.slug);
+      assert.ok(slugs.includes("sunday-family-chess-festival"), "explicit archive request shows past public event");
     });
 
     it("returns the organizer's own events (incl. drafts) with ?mine=true", async () => {

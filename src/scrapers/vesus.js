@@ -344,7 +344,7 @@ const normalizeTimings = (timings) => {
       .map((timing) => timing.trim().toUpperCase())
       .filter(Boolean);
   }
-  return ["INPROGRESS", "FUTURE", "ARCHIVED"];
+  return ["INPROGRESS", "FUTURE"];
 };
 
 const listEventsForTiming = async ({
@@ -832,6 +832,7 @@ module.exports = {
   fetchVesusTournamentDetail,
   mapVesusEventTournament,
   mapVesusPairingsSnapshot,
+  normalizeTimings,
   searchVesusTournaments,
   shortKeyFromUrl
 };
