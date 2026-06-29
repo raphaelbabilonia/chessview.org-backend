@@ -17,12 +17,22 @@ const pairingSchema = new mongoose.Schema(
         "1/2-1/2",
         "bye-white",
         "bye-black",
+        "half-bye",
+        "zero-bye",
         "forfeit-white",
         "forfeit-black"
       ],
       default: "pending"
     },
-    notes: { type: String, default: "" }
+    sourceWhitePoints: { type: Number, default: null },
+    sourceBlackPoints: { type: Number, default: null },
+    notes: { type: String, default: "" },
+    source: {
+      name: { type: String, default: "" },
+      originalId: { type: String, default: "" },
+      imported: { type: Boolean, default: false },
+      lastCheckedAt: { type: Date, default: null }
+    }
   },
   { timestamps: true }
 );

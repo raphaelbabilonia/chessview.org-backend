@@ -11,7 +11,19 @@ const sectionSchema = new mongoose.Schema(
     birthYearMin: { type: Number, default: null },
     birthYearMax: { type: Number, default: null },
     timeControl: { type: String, default: "" },
-    roundsCount: { type: Number, default: 5 }
+    roundsCount: { type: Number, default: 5 },
+    pairingSystem: { type: String, default: "" },
+    scoringSystem: { type: String, default: "" },
+    ratingRule: { type: String, default: "" },
+    resultsSource: { type: String, default: "" },
+    sourceTieBreaks: { type: [String], default: [] },
+    tieBreakRating: { type: Number, default: 0 },
+    source: {
+      name: { type: String, default: "" },
+      originalId: { type: String, default: "" },
+      imported: { type: Boolean, default: false },
+      lastCheckedAt: { type: Date, default: null }
+    }
   },
   { timestamps: true }
 );

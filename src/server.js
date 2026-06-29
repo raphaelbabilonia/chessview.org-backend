@@ -1,16 +1,14 @@
 require("dotenv").config({ quiet: true });
 const app = require("./app");
 const { connectDB } = require("./config/db");
+const { validateEnv } = require("./config/env");
 
 const PORT = process.env.PORT || 5000;
 
-if (!process.env.JWT_SECRET) {
-  console.error("Invalid JWT_SECRET environment variable");
-  process.exit(1);
-}
-
-if (process.env.JWT_SECRET.length < 32) {
-  console.error("JWT_SECRET should be minimum 32 char length random string");
+try {
+  validateEnv();
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
 

@@ -8,6 +8,8 @@ const resultEnum = z.enum([
   "1/2-1/2",
   "bye-white",
   "bye-black",
+  "half-bye",
+  "zero-bye",
   "forfeit-white",
   "forfeit-black"
 ]);

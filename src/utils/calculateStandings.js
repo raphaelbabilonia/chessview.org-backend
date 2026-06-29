@@ -19,6 +19,43 @@ const addScore = (entry, score, marker) => {
 };
 
 const calculateStandings = (players = [], pairings = []) => {
+  const hasCompletedPairings = pairings.some((pairing) => pairing.result && pairing.result !== "pending");
+  const hasSourceStandings = players.some((player) => Number(player.sourceRank || 0) > 0 || Number(player.sourcePoints || 0) > 0);
+
+  if (!hasCompletedPairings && hasSourceStandings) {
+    return [...players]
+      .sort((a, b) => {
+        const pointsDiff = Number(b.sourcePoints || 0) - Number(a.sourcePoints || 0);
+        if (pointsDiff !== 0) return pointsDiff;
+        const rankDiff = Number(a.sourceRank || 999999) - Number(b.sourceRank || 999999);
+        if (rankDiff !== 0) return rankDiff;
+        return String(a.lastName || "").localeCompare(String(b.lastName || ""));
+      })
+      .map((player, index) => ({
+        player,
+        playerId: getPlayerId(player),
+        firstName: player.firstName || "",
+        lastName: player.lastName || "",
+        rating: Number(player.rating || 0),
+        points: Number(player.sourcePoints || 0),
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        byes: 0,
+        forfeits: 0,
+        roundScores: [],
+        scoreString: "",
+        position: Number(player.sourceRank || 0) || index + 1,
+        sourceRank: Number(player.sourceRank || 0),
+        sourcePoints: Number(player.sourcePoints || 0),
+        sourceTieBreaks: player.sourceTieBreaks || [],
+        sourceMatches: player.sourceMatches || [],
+        performanceRating: Number(player.performanceRating || 0),
+        ratingChange: player.ratingChange
+      }));
+  }
+
   const table = new Map();
 
   players.forEach((player) => {
@@ -66,6 +103,12 @@ const calculateStandings = (players = [], pairings = []) => {
       case "bye-black":
         if (black) addScore(black, 1, "bye");
         break;
+      case "half-bye":
+        if (white) addScore(white, 0.5, "bye");
+        break;
+      case "zero-bye":
+        if (white) addScore(white, 0, "bye");
+        break;
       case "forfeit-white":
         if (white) addScore(white, 0, "forfeit");
         if (black) addScore(black, 1, "win");
@@ -87,12 +130,21 @@ const calculateStandings = (players = [], pairings = []) => {
     }))
     .sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
+      const sourceRankA = Number(a.player.sourceRank || 0);
+      const sourceRankB = Number(b.player.sourceRank || 0);
+      if (sourceRankA > 0 && sourceRankB > 0 && sourceRankA !== sourceRankB) return sourceRankA - sourceRankB;
       if (b.wins !== a.wins) return b.wins - a.wins;
       if (b.rating !== a.rating) return b.rating - a.rating;
       return a.lastName.localeCompare(b.lastName);
     })
     .map((entry, index) => ({
-      position: index + 1,
+      position: Number(entry.player.sourceRank || 0) || index + 1,
+      sourceRank: Number(entry.player.sourceRank || 0),
+      sourcePoints: Number(entry.player.sourcePoints || 0),
+      sourceTieBreaks: entry.player.sourceTieBreaks || [],
+      sourceMatches: entry.player.sourceMatches || [],
+      performanceRating: Number(entry.player.performanceRating || 0),
+      ratingChange: entry.player.ratingChange,
       ...entry
     }));
 };

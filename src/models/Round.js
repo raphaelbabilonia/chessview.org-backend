@@ -11,7 +11,13 @@ const roundSchema = new mongoose.Schema(
       enum: ["draft", "published", "completed"],
       default: "draft"
     },
-    startsAt: { type: Date, default: null }
+    startsAt: { type: Date, default: null },
+    source: {
+      name: { type: String, default: "" },
+      originalId: { type: String, default: "" },
+      imported: { type: Boolean, default: false },
+      lastCheckedAt: { type: Date, default: null }
+    }
   },
   { timestamps: true }
 );
