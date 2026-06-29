@@ -8,6 +8,7 @@ const { fetchInfo64TournamentDetail } = require("../scrapers/info64");
 const { fetchLichessBroadcastDetail } = require("../scrapers/lichessBroadcasts");
 const { fetchVesusTournamentDetail } = require("../scrapers/vesus");
 const { importTournamentDetail, documentTypeFor } = require("../services/tournamentDetailImporter");
+const { buildDetailImportQuery, todayIsoDate } = require("../services/detailImportPlanner");
 
 const readArg = (name, fallback = "") => {
   const prefix = `--${name}=`;
@@ -154,15 +155,55 @@ const main = async () => {
   const source = readArg("source", "");
   const limit = Number(readArg("limit", "0")) || 0;
   const downloadDocuments = hasFlag("download-documents");
-  const query = {
-    isPublic: true,
-    "source.name": { $nin: ["", null] }
-  };
-  if (source) query["source.name"] = source;
+  const includePast = hasFlag("include-past");
+  const missingDetailOnly = hasFlag("missing-detail-only");
+  const activeFrom = readArg("active-from", todayIsoDate());
+  const staleHours = Number(readArg("stale-hours", "6"));
+  const planOnly = hasFlag("plan-only");
+  const query = buildDetailImportQuery({
+    activeFrom,
+    includePast,
+    missingDetailOnly,
+    source,
+    staleHours
+  });
 
-  const eventQuery = Event.find(query).sort({ "source.name": 1, startDate: 1, title: 1 });
+  const eventQuery = Event.find(query).sort({ endDate: 1, startDate: 1, "source.name": 1, title: 1 });
   if (limit > 0) eventQuery.limit(limit);
   const events = await eventQuery;
+  if (planOnly) {
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          action: "plan-detail-import",
+          options: {
+            activeFrom,
+            includePast,
+            limit,
+            missingDetailOnly,
+            source,
+            staleHours
+          },
+          query,
+          totals: {
+            events: events.length
+          },
+          events: events.map((event) => ({
+            id: String(event._id),
+            title: event.title,
+            endDate: event.endDate,
+            source: event.source?.name || "",
+            detailStatus: event.source?.detailStatus || "",
+            detailLastCheckedAt: event.source?.detailLastCheckedAt || null
+          }))
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
   const totals = {
     events: events.length,
     succeeded: 0,
@@ -201,6 +242,16 @@ const main = async () => {
         stats
       });
     } catch (error) {
+      await Event.updateOne(
+        { _id: event._id },
+        {
+          $set: {
+            "source.detailLastCheckedAt": new Date(),
+            "source.detailStatus": "failed",
+            "source.detailError": error.message
+          }
+        }
+      );
       totals.failed += 1;
       results.push({
         ok: false,
@@ -216,7 +267,15 @@ const main = async () => {
     JSON.stringify(
       {
         ok: totals.failed === 0,
-        options,
+        options: {
+          ...options,
+          activeFrom,
+          includePast,
+          missingDetailOnly,
+          source,
+          staleHours
+        },
+        query,
         totals,
         results
       },

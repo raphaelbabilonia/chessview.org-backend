@@ -16,6 +16,7 @@ const {
   mergeExternalLinks,
   shouldRefreshImportedSlug
 } = require("../src/services/tournamentMetadataImporter");
+const { buildDetailImportQuery, detailStatusForStats } = require("../src/services/detailImportPlanner");
 const { normalizeJobLimit } = require("../src/services/scrapeRunner");
 const { documentTypeFor, normalizeResult } = require("../src/services/tournamentDetailImporter");
 const calculateStandings = require("../src/utils/calculateStandings");
@@ -612,4 +613,37 @@ test("normalizes scrape worker job limits defensively", () => {
   assert.equal(normalizeJobLimit(0), 1);
   assert.equal(normalizeJobLimit(3.8), 3);
   assert.equal(normalizeJobLimit(999), 20);
+});
+
+test("plans detail imports for active stale events by default", () => {
+  const query = buildDetailImportQuery({
+    activeFrom: "2026-06-29",
+    now: new Date("2026-06-29T12:00:00.000Z"),
+    source: "Vesus",
+    staleHours: 6
+  });
+
+  assert.equal(query.isPublic, true);
+  assert.equal(query["source.name"], "Vesus");
+  assert.deepEqual(query.endDate, { $gte: new Date("2026-06-29") });
+  assert.ok(query.$and.some((clause) => clause.$or?.some((item) => item["source.detailLastCheckedAt"]?.$lte)));
+});
+
+test("can plan explicit archive detail imports without freshness filtering", () => {
+  const query = buildDetailImportQuery({
+    includePast: true,
+    missingDetailOnly: true,
+    staleHours: 0
+  });
+
+  assert.equal(query.endDate, undefined);
+  assert.equal(query.$and.length, 1);
+  assert.ok(query.$and[0].$or.some((item) => item["source.detailStatus"]?.$in?.includes("empty")));
+});
+
+test("classifies imported detail completeness", () => {
+  assert.equal(detailStatusForStats({ players: 10, rounds: 4, pairings: 20 }), "complete");
+  assert.equal(detailStatusForStats({ sections: 1, players: 10, rounds: 0, pairings: 0 }), "partial");
+  assert.equal(detailStatusForStats({ documents: 3 }), "documents-only");
+  assert.equal(detailStatusForStats({}), "empty");
 });

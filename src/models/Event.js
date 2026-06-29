@@ -40,7 +40,21 @@ const eventSchema = new mongoose.Schema(
       name: { type: String, default: "" },
       url: { type: String, default: "" },
       originalId: { type: String, default: "" },
-      lastCheckedAt: { type: Date, default: null }
+      lastCheckedAt: { type: Date, default: null },
+      detailLastCheckedAt: { type: Date, default: null },
+      detailStatus: {
+        type: String,
+        enum: ["", "complete", "partial", "documents-only", "empty", "failed"],
+        default: ""
+      },
+      detailError: { type: String, default: "" },
+      detailStats: {
+        sections: { type: Number, default: 0 },
+        players: { type: Number, default: 0 },
+        rounds: { type: Number, default: 0 },
+        pairings: { type: Number, default: 0 },
+        documents: { type: Number, default: 0 }
+      }
     },
     externalLinks: {
       type: [

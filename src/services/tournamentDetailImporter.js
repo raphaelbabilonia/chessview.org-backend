@@ -7,6 +7,7 @@ const Section = require("../models/Section");
 const Event = require("../models/Event");
 const EventDocument = require("../models/EventDocument");
 const { fetchBuffer } = require("../scrapers/httpClient");
+const { detailStatusForStats } = require("./detailImportPlanner");
 
 const documentTypesByExtension = {
   pdf: "pdf",
@@ -397,6 +398,26 @@ const importTournamentDetail = async (event, detail, options = {}) => {
     if (result.action === "downloaded") stats.downloadedDocuments += 1;
     if (result.action === "failed") stats.failedDocuments += 1;
   }
+
+  const detailStats = {
+    sections: stats.sections,
+    players: stats.players,
+    rounds: stats.rounds,
+    pairings: stats.pairings,
+    documents: stats.documents
+  };
+
+  await Event.updateOne(
+    { _id: event._id },
+    {
+      $set: {
+        "source.detailLastCheckedAt": new Date(checkedAt),
+        "source.detailStatus": detailStatusForStats(stats),
+        "source.detailError": "",
+        "source.detailStats": detailStats
+      }
+    }
+  );
 
   return stats;
 };

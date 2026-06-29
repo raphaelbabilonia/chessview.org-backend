@@ -206,6 +206,13 @@ const upsertTournamentMetadata = async (tournament, { organizer } = {}) => {
   const existing = await findExistingEvent(tournament);
 
   if (existing) {
+    payload.source = {
+      ...payload.source,
+      detailLastCheckedAt: existing.source?.detailLastCheckedAt || null,
+      detailStatus: existing.source?.detailStatus || "",
+      detailError: existing.source?.detailError || "",
+      detailStats: existing.source?.detailStats || {}
+    };
     payload.externalLinks = mergeExternalLinks(
       (existing.externalLinks || []).filter((link) => !link.sourceName || link.sourceName !== tournament.sourceName),
       payload.externalLinks

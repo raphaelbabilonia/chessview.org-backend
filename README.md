@@ -168,7 +168,7 @@ npm run scrape:report -- --active-from 2026-06-27
 
 The report shows imported and active event counts, source status, latest scrape jobs, warnings, missing required fields, and duplicate checks.
 
-To import tournament detail after metadata exists, use the detail importer. It refreshes imported sections, players, rounds, pairings, source standings, and event documents for supported sources, and keeps manual organizer data separate from imported records.
+To import tournament detail after metadata exists, use the detail importer. It refreshes imported sections, players, rounds, pairings, source standings, and event documents for supported sources, and keeps manual organizer data separate from imported records. Detail imports are active-event and incremental by default: past events are skipped unless `--include-past` is passed, and events refreshed within `--stale-hours` are skipped unless `--stale-hours 0` is used.
 
 ```bash
 npm run scrape:details -- --source Vesus --download-documents --rate-limit-ms 1200 --max-document-bytes 15000000
@@ -178,6 +178,22 @@ npm run scrape:details -- --source AICF --download-documents --rate-limit-ms 100
 npm run scrape:details -- --source ChessArbiter --download-documents --rate-limit-ms 1000 --max-document-bytes 15000000
 npm run scrape:details -- --source ChessReg --download-documents --rate-limit-ms 1000 --max-document-bytes 15000000
 ```
+
+Recommended day-to-day Vesus flow:
+
+```bash
+npm run scrape:sources -- --source vesus-public --mode apply --limit 20
+npm run scrape:details -- --source Vesus --missing-detail-only --rate-limit-ms 1200
+```
+
+Useful detail importer controls:
+
+- `--active-from YYYY-MM-DD`: active window start; defaults to today.
+- `--include-past`: explicitly include past/archive events.
+- `--missing-detail-only`: only fetch events with no detail, empty detail, or failed detail.
+- `--plan-only`: print the selected events without calling external source detail pages.
+- `--stale-hours N`: skip recently refreshed events; defaults to `6`, use `0` to force refresh.
+- `--download-documents`: download binary documents locally. Leave it off for routine runs to keep imports light.
 
 Current detail coverage:
 
