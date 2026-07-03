@@ -65,10 +65,10 @@ Create `.env` from `.env.example`:
 ```env
 PORT=5000
 MONGO_URI=mongodb://127.0.0.1:27017/chessview
-JWT_SECRET=change-me-in-production
+JWT_SECRET=change-this-local-secret-before-deploying
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:3000
-CLIENT_URLS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3001,http://127.0.0.1:5173,http://127.0.0.1:5174
+CLIENT_URLS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173,http://127.0.0.1:5174
 NODE_ENV=development
 SCRAPER_USER_AGENT=ChessViewScraper/0.1 (+https://chessview.org)
 SCRAPER_ORGANIZER_EMAIL=sources@chessview.local
