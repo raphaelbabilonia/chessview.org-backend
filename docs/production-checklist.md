@@ -30,6 +30,7 @@ JWT_EXPIRES_IN=7d
 CLIENT_URLS=https://chessview.org,https://www.chessview.org,https://app.chessview.org,https://www.app.chessview.org
 AGENT_PUBLISH_TOKEN=<separate-random-agent-token>
 AGENT_PUBLISH_USER_EMAIL=<admin-or-organizer-email>
+AGENT_SERVICE_USER_EMAIL=agent-publisher@chessview.local
 ```
 
 Generate `JWT_SECRET` with:

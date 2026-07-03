@@ -1,3 +1,5 @@
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const Event = require("../models/Event");
 const NewsItem = require("../models/NewsItem");
 const User = require("../models/User");
@@ -76,7 +78,17 @@ const findAgentOrganizer = async () => {
     const user = await User.findOne({ email: configuredEmail.toLowerCase(), role: { $in: ["admin", "organizer"] } });
     if (user) return user;
   }
-  return (await User.findOne({ role: "admin" })) || (await User.findOne({ role: "organizer" }));
+  const existing = (await User.findOne({ role: "admin" })) || (await User.findOne({ role: "organizer" }));
+  if (existing) return existing;
+
+  const email = (process.env.AGENT_SERVICE_USER_EMAIL || "agent-publisher@chessview.local").toLowerCase();
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+  return User.create({
+    name: "ChessView Agent Publisher",
+    email,
+    passwordHash,
+    role: "organizer"
+  });
 };
 
 const makeUniqueEventSlug = async (title, existingId = null) => {
