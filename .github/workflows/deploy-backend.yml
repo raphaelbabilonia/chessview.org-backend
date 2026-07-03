@@ -35,7 +35,11 @@ jobs:
         run: |
           install -m 700 -d ~/.ssh
           printf '%s' '${{ secrets.VPS_SSH_KEY }}' | sed 's/\\n/\n/g' | tr -d '\r' > ~/.ssh/deploy_key
+          if [ -s ~/.ssh/deploy_key ] && [ "$(tail -c 1 ~/.ssh/deploy_key | wc -l)" -eq 0 ]; then
+            printf '\n' >> ~/.ssh/deploy_key
+          fi
           chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Upload API package to VPS
