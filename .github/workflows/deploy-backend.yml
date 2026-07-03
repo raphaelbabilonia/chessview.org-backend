@@ -1,0 +1,231 @@
+name: Deploy ChessView API
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: chessview-api-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend verification
+        run: npm run verify
+
+      - name: Setup SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          cat > ~/.ssh/deploy_key << 'EOF'
+          ${{ secrets.VPS_SSH_KEY }}
+          EOF
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Upload API package to VPS
+        run: |
+          rsync -avz --timeout=300 -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=60" \
+            --delete \
+            --delete-excluded \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude 'coverage/' \
+            --exclude 'node_modules/' \
+            --exclude 'uploads/' \
+            --exclude 'docs/' \
+            --exclude 'test/' \
+            --exclude 'test-helpers/' \
+            --exclude 'README.md' \
+            --exclude '.gitignore' \
+            ./ \
+            ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/tmp/chessview-api-deploy/
+
+      - name: Deploy API on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 20m
+          script: |
+            set -e
+
+            run_privileged() {
+              if [ "$(id -u)" -eq 0 ]; then
+                "$@"
+              else
+                sudo -n "$@"
+              fi
+            }
+
+            run_as_site_user() {
+              if id "$SITE_USER" >/dev/null 2>&1 && [ "$(id -un)" != "$SITE_USER" ]; then
+                if [ "$(id -u)" -eq 0 ]; then
+                  sudo -H -u "$SITE_USER" bash -lc "$1"
+                else
+                  sudo -n -H -u "$SITE_USER" bash -lc "$1"
+                fi
+              else
+                bash -lc "$1"
+              fi
+            }
+
+            APP_NAME="chessview-api"
+            SITE_USER="chessview-api"
+            TARGET_DIR="/home/chessview-api/htdocs/api.chessview.org"
+            TEMP_DIR="/tmp/chessview-api-deploy"
+            BACKUP_ROOT="/home/chessview-api/backups"
+            BACKUP_DIR="$BACKUP_ROOT/api-$(date +%Y%m%d-%H%M%S)"
+            LOCAL_HEALTH_URL="http://127.0.0.1:4000/api/health"
+
+            if [ ! -d "$TEMP_DIR" ]; then
+              echo "Temporary deploy directory not found: $TEMP_DIR"
+              exit 1
+            fi
+
+            if [ ! -f "$TEMP_DIR/package.json" ] || [ ! -f "$TEMP_DIR/src/server.js" ]; then
+              echo "Uploaded API package is incomplete"
+              exit 1
+            fi
+
+            run_privileged mkdir -p "$TARGET_DIR" "$BACKUP_ROOT"
+
+            if [ ! -f "$TARGET_DIR/.env" ]; then
+              cat << 'EOF'
+            Missing production environment file:
+              /home/chessview-api/htdocs/api.chessview.org/.env
+
+            Create it on the VPS before deploying. Minimum example:
+              NODE_ENV=production
+              PORT=4000
+              MONGO_URI=mongodb://127.0.0.1:27017/chessview
+              JWT_SECRET=<at-least-32-random-characters>
+              JWT_EXPIRES_IN=7d
+              CLIENT_URLS=https://chessview.org,https://www.chessview.org
+            EOF
+              exit 1
+            fi
+
+            if [ -d "$TARGET_DIR" ] && [ "$(find "$TARGET_DIR" -mindepth 1 -maxdepth 1 ! -name '.env' ! -name 'node_modules' ! -name 'uploads' 2>/dev/null | head -n 1)" ]; then
+              run_privileged mkdir -p "$BACKUP_DIR"
+              run_privileged rsync -a --delete \
+                --exclude '.env' \
+                --exclude 'node_modules/' \
+                --exclude 'uploads/' \
+                "$TARGET_DIR"/ "$BACKUP_DIR"/
+            fi
+
+            run_privileged rsync -av --delete \
+              --exclude '.env' \
+              --exclude 'node_modules/' \
+              --exclude 'uploads/' \
+              "$TEMP_DIR"/ "$TARGET_DIR"/
+            run_privileged rm -rf "$TEMP_DIR"
+            run_privileged mkdir -p "$TARGET_DIR/uploads"
+
+            cat > /tmp/chessview-api-ecosystem.config.cjs << 'EOF'
+            module.exports = {
+              apps: [
+                {
+                  name: "chessview-api",
+                  script: "src/server.js",
+                  cwd: "/home/chessview-api/htdocs/api.chessview.org",
+                  instances: 1,
+                  exec_mode: "fork",
+                  env: {
+                    NODE_ENV: "production",
+                    PORT: "4000"
+                  }
+                }
+              ]
+            };
+            EOF
+            run_privileged mv /tmp/chessview-api-ecosystem.config.cjs "$TARGET_DIR/ecosystem.config.cjs"
+
+            if id "$SITE_USER" >/dev/null 2>&1; then
+              run_privileged chown -R "$SITE_USER:$SITE_USER" "$TARGET_DIR" "$BACKUP_ROOT"
+            fi
+
+            if ! command -v pm2 >/dev/null 2>&1; then
+              run_privileged npm install -g pm2
+            fi
+
+            run_as_site_user "cd '$TARGET_DIR' && npm ci --omit=dev --no-audit"
+            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/checkSyntax.js"
+            run_as_site_user "cd '$TARGET_DIR' && pm2 startOrReload ecosystem.config.cjs --update-env"
+            run_as_site_user "pm2 save || true"
+
+            if [ "$(id -u)" -eq 0 ] && command -v pm2 >/dev/null 2>&1; then
+              pm2 startup systemd -u "$SITE_USER" --hp "/home/$SITE_USER" >/dev/null 2>&1 || true
+            fi
+
+            LOCAL_STATUS="000"
+            for attempt in $(seq 1 20); do
+              LOCAL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$LOCAL_HEALTH_URL" || echo "000")
+              if [ "$LOCAL_STATUS" = "200" ]; then
+                break
+              fi
+              sleep 3
+            done
+
+            if [ "$LOCAL_STATUS" != "200" ]; then
+              echo "Local API health check failed: $LOCAL_STATUS"
+              if [ -d "$BACKUP_DIR" ] && [ "$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]; then
+                echo "Restoring previous API release from $BACKUP_DIR"
+                run_privileged rsync -av --delete \
+                  --exclude '.env' \
+                  --exclude 'node_modules/' \
+                  --exclude 'uploads/' \
+                  "$BACKUP_DIR"/ "$TARGET_DIR"/
+                run_as_site_user "cd '$TARGET_DIR' && npm ci --omit=dev --no-audit"
+                run_as_site_user "cd '$TARGET_DIR' && pm2 startOrReload ecosystem.config.cjs --update-env"
+                run_as_site_user "pm2 save || true"
+              fi
+              exit 1
+            fi
+
+            if id "$SITE_USER" >/dev/null 2>&1; then
+              run_privileged chown -R "$SITE_USER:$SITE_USER" "$TARGET_DIR" "$BACKUP_ROOT"
+            fi
+
+            cd "$BACKUP_ROOT"
+            for old_backup in $(ls -dt api-*/ 2>/dev/null | tail -n +6); do
+              run_privileged rm -rf "$old_backup"
+            done
+
+      - name: Verify public API
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 5m
+          script: |
+            set -e
+            PUBLIC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.chessview.org/api/health || echo "000")
+            echo "https://api.chessview.org/api/health => HTTP $PUBLIC_STATUS"
+            if [ "$PUBLIC_STATUS" != "200" ]; then
+              exit 1
+            fi
