@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "Martinez Magic Makes For Another Titled Tuesday Victory",
+  "slug": "chesscom-martinez-titled-tuesday-june-2026",
+  "summary": "Jose Martinez added another Titled Tuesday win with a dominant unbeaten score, continuing his strong run in Chess.com's weekly elite arena.",
+  "summaryType": "editorial",
+  "sourceName": "Chess.com",
+  "sourceUrl": "https://www.chess.com/news/view/martinez-wins-titled-tuesday-june-30-2026",
+  "canonicalUrl": "https://www.chess.com/news/view/martinez-wins-titled-tuesday-june-30-2026",
+  "publishedAt": "2026-06-30T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "online",
+  "imageUrl": "https://images.chesscomfiles.com/uploads/v1/news/2060829.5467a8cc.300x169o.188b3d04d588.png",
+  "tags": [
+    "chess-com",
+    "online"
+  ],
+  "originalId": "chesscom-martinez-titled-tuesday-june-2026",
+  "contentHash": "bb29a47f5670d495c9159dec38e2cd307d92e889484269c438497b0c1c816462",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chesscom-martinez-titled-tuesday-june-2026",
+      "sourceUrl": "https://www.chess.com/news/view/martinez-wins-titled-tuesday-june-30-2026",
+      "canonicalUrl": "https://www.chess.com/news/view/martinez-wins-titled-tuesday-june-30-2026",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "Martinez Magic Makes For Another Titled Tuesday Victory was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-06-30|chesscom-martinez-titled-tuesday-june-2026",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "KazChess Masters in Almaty: Shankland, Kovalenko start with wins",
+  "slug": "chessbase-kazchess-masters-almaty-2026",
+  "summary": "The KazChess Masters opened in Almaty with a mix of experienced grandmasters and local talents, and the first round already produced decisive games.",
+  "summaryType": "editorial",
+  "sourceName": "ChessBase",
+  "sourceUrl": "https://en.chessbase.com/post/kazchess-masters-almaty-2026-r1",
+  "canonicalUrl": "https://en.chessbase.com/post/kazchess-masters-almaty-2026-r1",
+  "publishedAt": "2026-07-01T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "tournament",
+  "imageUrl": "https://en.chessbase.com/Portals/all/thumbs/131/131107.jpeg",
+  "tags": [
+    "chessbase",
+    "tournament"
+  ],
+  "originalId": "chessbase-kazchess-masters-almaty-2026",
+  "contentHash": "0091820104bf958bef0e9c87dd88e76b4b49ceb5f6bad41ff265e7aff7ba58fb",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chessbase-kazchess-masters-almaty-2026",
+      "sourceUrl": "https://en.chessbase.com/post/kazchess-masters-almaty-2026-r1",
+      "canonicalUrl": "https://en.chessbase.com/post/kazchess-masters-almaty-2026-r1",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "KazChess Masters in Almaty: Shankland, Kovalenko start with wins was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-01|chessbase-kazchess-masters-almaty-2026",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

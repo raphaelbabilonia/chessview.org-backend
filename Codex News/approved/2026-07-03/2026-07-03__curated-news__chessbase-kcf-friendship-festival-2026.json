@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "KCF Friendship Festival Concludes",
+  "slug": "chessbase-kcf-friendship-festival-2026",
+  "summary": "The Kasparov Chess Foundation Friendship Festival wrapped up in Slovenia, with Xu Xiangyu winning a demanding open field after nine rounds.",
+  "summaryType": "editorial",
+  "sourceName": "ChessBase",
+  "sourceUrl": "https://en.chessbase.com/post/kcf-friendship-festival-concludes",
+  "canonicalUrl": "https://en.chessbase.com/post/kcf-friendship-festival-concludes",
+  "publishedAt": "2026-07-02T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "tournament",
+  "imageUrl": "https://en.chessbase.com/Portals/all/thumbs/131/131117.jpeg",
+  "tags": [
+    "chessbase",
+    "open-tournaments"
+  ],
+  "originalId": "chessbase-kcf-friendship-festival-2026",
+  "contentHash": "827958c6425a2952e7d6b32674c05b5bc167d22fc3a0499f14ab9dca72ae51cb",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chessbase-kcf-friendship-festival-2026",
+      "sourceUrl": "https://en.chessbase.com/post/kcf-friendship-festival-concludes",
+      "canonicalUrl": "https://en.chessbase.com/post/kcf-friendship-festival-concludes",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "KCF Friendship Festival Concludes was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-02|chessbase-kcf-friendship-festival-2026",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

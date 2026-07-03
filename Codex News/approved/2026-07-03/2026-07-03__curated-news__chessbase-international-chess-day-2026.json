@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "International Chess Day 2026: Celebrate, create and make a difference",
+  "slug": "chessbase-international-chess-day-2026",
+  "summary": "FIDE's International Chess Day programme is framed around participation, creative play, and chess projects with social impact around the world.",
+  "summaryType": "editorial",
+  "sourceName": "ChessBase",
+  "sourceUrl": "https://en.chessbase.com/post/international-chess-day-2026-announcement",
+  "canonicalUrl": "https://en.chessbase.com/post/international-chess-day-2026-announcement",
+  "publishedAt": "2026-07-02T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "other",
+  "imageUrl": "https://en.chessbase.com/Portals/all/thumbs/131/131130.png",
+  "tags": [
+    "chessbase",
+    "community"
+  ],
+  "originalId": "chessbase-international-chess-day-2026",
+  "contentHash": "8ea94ac3b23a082b9e3788a44294966a41e9adc190f8cc2d5a9d746d38e1a24e",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chessbase-international-chess-day-2026",
+      "sourceUrl": "https://en.chessbase.com/post/international-chess-day-2026-announcement",
+      "canonicalUrl": "https://en.chessbase.com/post/international-chess-day-2026-announcement",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "International Chess Day 2026: Celebrate, create and make a difference was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-02|chessbase-international-chess-day-2026",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

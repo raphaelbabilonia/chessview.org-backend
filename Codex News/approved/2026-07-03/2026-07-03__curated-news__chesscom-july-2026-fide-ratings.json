@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "Carlsen Drops 18 Points, Remains Only 2800+ Player In World",
+  "slug": "chesscom-july-2026-fide-ratings",
+  "summary": "The July rating list reshuffled several elite storylines, including a notable drop for Magnus Carlsen while he still remained above the 2800 mark.",
+  "summaryType": "editorial",
+  "sourceName": "Chess.com",
+  "sourceUrl": "https://www.chess.com/news/view/july-2026-fide-ratings",
+  "canonicalUrl": "https://www.chess.com/news/view/july-2026-fide-ratings",
+  "publishedAt": "2026-07-01T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "player",
+  "imageUrl": "https://images.chesscomfiles.com/uploads/v1/news/2060765.3f75a040.300x169o.648015ed593f.png",
+  "tags": [
+    "chess-com",
+    "ratings"
+  ],
+  "originalId": "chesscom-july-2026-fide-ratings",
+  "contentHash": "56d20b72697c4c69d271f40572e792311b743314a5dfccc4316fe29ed14569d3",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chesscom-july-2026-fide-ratings",
+      "sourceUrl": "https://www.chess.com/news/view/july-2026-fide-ratings",
+      "canonicalUrl": "https://www.chess.com/news/view/july-2026-fide-ratings",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "Carlsen Drops 18 Points, Remains Only 2800+ Player In World was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-01|chesscom-july-2026-fide-ratings",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

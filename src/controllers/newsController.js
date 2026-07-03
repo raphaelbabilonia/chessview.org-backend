@@ -42,7 +42,10 @@ const listNews = async (req, res) => {
     req.query.limit === undefined ? MAX_NEWS_LIMIT : Math.min(parsePositiveInt(req.query.limit, MAX_NEWS_LIMIT), MAX_NEWS_LIMIT);
   const total = await NewsItem.countDocuments(publicNewsQuery);
   if (total > 0) {
-    const dbItems = await NewsItem.find(publicNewsQuery).sort({ publishedAt: -1, createdAt: -1 }).limit(limit).lean();
+    const [dbItems, sourceItems] = await Promise.all([
+      NewsItem.find(publicNewsQuery).sort({ publishedAt: -1, createdAt: -1 }).limit(limit).lean(),
+      NewsItem.find(publicNewsQuery).select("sourceName sourceHomeUrl").lean()
+    ]);
     const data = dbItems.map(serializeNews);
     return res.json({
       success: true,
@@ -50,7 +53,7 @@ const listNews = async (req, res) => {
       meta: {
         count: data.length,
         total,
-        sources: getDbNewsSources(dbItems)
+        sources: getDbNewsSources(sourceItems)
       }
     });
   }

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "Pranav Venkatesh and Anna Muzychuk qualify for 2027 FIDE Freestyle Chess World Championships",
+  "slug": "chessbase-freestyle-2027-qualifiers",
+  "summary": "Pranav Venkatesh and Anna Muzychuk secured places in the 2027 Freestyle Chess World Championship through a long online qualification path.",
+  "summaryType": "editorial",
+  "sourceName": "ChessBase",
+  "sourceUrl": "https://en.chessbase.com/post/freestyle-chess-wc-2027-pranav-muzychuk",
+  "canonicalUrl": "https://en.chessbase.com/post/freestyle-chess-wc-2027-pranav-muzychuk",
+  "publishedAt": "2026-07-02T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "tournament",
+  "imageUrl": "https://en.chessbase.com/Portals/all/thumbs/131/131129.jpeg",
+  "tags": [
+    "chessbase",
+    "freestyle"
+  ],
+  "originalId": "chessbase-freestyle-2027-qualifiers",
+  "contentHash": "1ee2d75b53dc1c1e2c97e54bf21f8a9e812c9e40c2d349d9b924c682d142baf6",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chessbase-freestyle-2027-qualifiers",
+      "sourceUrl": "https://en.chessbase.com/post/freestyle-chess-wc-2027-pranav-muzychuk",
+      "canonicalUrl": "https://en.chessbase.com/post/freestyle-chess-wc-2027-pranav-muzychuk",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "Pranav Venkatesh and Anna Muzychuk qualify for 2027 FIDE Freestyle Chess World Championships was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-02|chessbase-freestyle-2027-qualifiers",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

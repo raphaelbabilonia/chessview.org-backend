@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "Yip, Garifullina Qualify For WR Women's Chess Tour Grand Final",
+  "slug": "chesscom-wr-womens-tour-americas-2026",
+  "summary": "Carissa Yip and Leya Garifullina earned Grand Final places from the Americas leg of the WR Women's Chess Tour after separate rapid and blitz victories.",
+  "summaryType": "editorial",
+  "sourceName": "Chess.com",
+  "sourceUrl": "https://www.chess.com/news/view/yip-garifullina-win-2026-wr-womens-chess-tour-americas",
+  "canonicalUrl": "https://www.chess.com/news/view/yip-garifullina-win-2026-wr-womens-chess-tour-americas",
+  "publishedAt": "2026-07-03T02:40:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "player",
+  "imageUrl": "https://images.chesscomfiles.com/uploads/v1/news/2068407.3dca48ac.300x169o.357b4ae5b569.jpg",
+  "tags": [
+    "chess-com",
+    "women-s-chess"
+  ],
+  "originalId": "chesscom-wr-womens-tour-americas-2026",
+  "contentHash": "8ac3453e9ccf5f2bb322469926771f54bdb3fcabb02b37f0ee8e25a038b24185",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chesscom-wr-womens-tour-americas-2026",
+      "sourceUrl": "https://www.chess.com/news/view/yip-garifullina-win-2026-wr-womens-chess-tour-americas",
+      "canonicalUrl": "https://www.chess.com/news/view/yip-garifullina-win-2026-wr-womens-chess-tour-americas",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "Yip, Garifullina Qualify For WR Women's Chess Tour Grand Final was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-03|chesscom-wr-womens-tour-americas-2026",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

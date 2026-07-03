@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "FIDE ratings - July 2026",
+  "slug": "chessbase-fide-ratings-july-2026",
+  "summary": "ChessBase looks at the July FIDE lists, including the senior elite, junior standings, and changes in the girls' rankings.",
+  "summaryType": "editorial",
+  "sourceName": "ChessBase",
+  "sourceUrl": "https://en.chessbase.com/post/fide-ratings-july-2026",
+  "canonicalUrl": "https://en.chessbase.com/post/fide-ratings-july-2026",
+  "publishedAt": "2026-07-01T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "player",
+  "imageUrl": "https://en.chessbase.com/Portals/all/thumbs/131/131118.jpeg",
+  "tags": [
+    "chessbase",
+    "ratings"
+  ],
+  "originalId": "chessbase-fide-ratings-july-2026",
+  "contentHash": "0104c5b662e1fa12f5005593d274d4fa19ff834d322c8a7240d79d0268c0a6e2",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chessbase-fide-ratings-july-2026",
+      "sourceUrl": "https://en.chessbase.com/post/fide-ratings-july-2026",
+      "canonicalUrl": "https://en.chessbase.com/post/fide-ratings-july-2026",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "FIDE ratings - July 2026 was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-01|chessbase-fide-ratings-july-2026",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

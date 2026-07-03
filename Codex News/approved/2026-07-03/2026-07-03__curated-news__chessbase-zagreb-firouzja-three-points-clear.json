@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "Zagreb: In-form Firouzja now three points clear of the field",
+  "slug": "chessbase-zagreb-firouzja-three-points-clear",
+  "summary": "Alireza Firouzja widened his lead in Zagreb after another strong rapid day, while Gukesh, Deac, Keymer, and Vachier-Lagrave kept the chase alive.",
+  "summaryType": "editorial",
+  "sourceName": "ChessBase",
+  "sourceUrl": "https://en.chessbase.com/post/super-croatia-2026-2",
+  "canonicalUrl": "https://en.chessbase.com/post/super-croatia-2026-2",
+  "publishedAt": "2026-07-03T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "tournament",
+  "imageUrl": "https://en.chessbase.com/Portals/all/thumbs/131/131134.jpeg",
+  "tags": [
+    "chessbase",
+    "tournament"
+  ],
+  "originalId": "chessbase-zagreb-firouzja-three-points-clear",
+  "contentHash": "c31d6de4e177004c47c4d1523c73a5e12b0fac03b02a9f6b5d1cb3f5a0d62aa6",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chessbase-zagreb-firouzja-three-points-clear",
+      "sourceUrl": "https://en.chessbase.com/post/super-croatia-2026-2",
+      "canonicalUrl": "https://en.chessbase.com/post/super-croatia-2026-2",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "Zagreb: In-form Firouzja now three points clear of the field was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-07-03|chessbase-zagreb-firouzja-three-points-clear",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}

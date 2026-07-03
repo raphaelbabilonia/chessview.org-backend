@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "title": "Ganguly's stunning a5 Attack - The Monthly Dragon",
+  "slug": "chessbase-monthly-dragon-ganguly-a5",
+  "summary": "A Dragon Sicilian model game becomes the anchor for a strategic lesson about queenside activity, timing, and turning pressure into tactics.",
+  "summaryType": "editorial",
+  "sourceName": "ChessBase",
+  "sourceUrl": "https://en.chessbase.com/post/ganguly-s-stunning-a5-attack-the-monthly-dragon",
+  "canonicalUrl": "https://en.chessbase.com/post/ganguly-s-stunning-a5-attack-the-monthly-dragon",
+  "publishedAt": "2026-06-30T00:00:00.000Z",
+  "language": "en",
+  "region": "global",
+  "category": "education",
+  "imageUrl": "https://en.chessbase.com/Portals/all/thumbs/131/131086%20(2).jpeg",
+  "tags": [
+    "chessbase",
+    "training"
+  ],
+  "originalId": "chessbase-monthly-dragon-ganguly-a5",
+  "contentHash": "4b090c01648493fd02cfc7edb3c35fadb67778854eb28ae25320a92ce41c68ff",
+  "confidence": 0.86,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "seed-chessbase-monthly-dragon-ganguly-a5",
+      "sourceUrl": "https://en.chessbase.com/post/ganguly-s-stunning-a5-attack-the-monthly-dragon",
+      "canonicalUrl": "https://en.chessbase.com/post/ganguly-s-stunning-a5-attack-the-monthly-dragon",
+      "capturedAt": "2026-07-03T18:24:28.710Z",
+      "excerpt": "Ganguly's stunning a5 Attack - The Monthly Dragon was already present in the curated ChessView source-first news set.",
+      "notes": "Seeded from existing curated backend news data for first agentic publish."
+    }
+  ],
+  "dedupeKey": "2026-06-30|chessbase-monthly-dragon-ganguly-a5",
+  "lastCheckedAt": "2026-07-03T18:24:28.710Z",
+  "approvedAt": "2026-07-03T18:24:28.710Z",
+  "approvedBy": "codex-seed-from-curated-news",
+  "publishStatus": "ready"
+}
