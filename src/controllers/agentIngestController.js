@@ -1,4 +1,11 @@
+const crypto = require("crypto");
 const { ingestNews, ingestTournaments } = require("../services/agentIngestService");
+
+const tokenMatches = (providedToken, configuredToken) => {
+  const provided = Buffer.from(providedToken);
+  const configured = Buffer.from(configuredToken);
+  return provided.length === configured.length && crypto.timingSafeEqual(provided, configured);
+};
 
 const requireAgentToken = (req, res, next) => {
   const configuredToken = process.env.AGENT_PUBLISH_TOKEN;
@@ -10,7 +17,7 @@ const requireAgentToken = (req, res, next) => {
   }
 
   const providedToken = req.get("X-Agent-Publish-Token") || "";
-  if (providedToken !== configuredToken) {
+  if (!tokenMatches(providedToken, configuredToken)) {
     return res.status(401).json({
       success: false,
       message: "Invalid agent publish token"
@@ -70,4 +77,3 @@ module.exports = {
   ingestTournamentBatch,
   requireAgentToken
 };
-

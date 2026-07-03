@@ -15,8 +15,10 @@ const {
   uploadRoot
 } = require("../controllers/broadcastController");
 const authMiddleware = require("../middleware/authMiddleware");
+const optionalAuthMiddleware = require("../middleware/optionalAuthMiddleware");
 const requireRole = require("../middleware/roleMiddleware");
 const validate = require("../middleware/validate");
+const validateObjectId = require("../middleware/validateObjectId");
 const {
   createDeviceSchema,
   updateDeviceSchema,
@@ -51,10 +53,10 @@ router.post("/devices", ...manageRoles, validate(createDeviceSchema), createDevi
 router.get("/devices", ...manageRoles, listDevices);
 router.patch("/devices/:deviceId", ...manageRoles, validate(updateDeviceSchema), updateDevice);
 
-router.post("/pairings/:pairingId/broadcast/start", ...manageRoles, validate(startBroadcastSchema), startBroadcast);
-router.post("/broadcasts/:broadcastId/end", ...manageRoles, endBroadcast);
-router.get("/pairings/:pairingId/broadcast", getPairingBroadcast);
-router.get("/broadcasts/:broadcastId/frames", listBroadcastFrames);
+router.post("/pairings/:pairingId/broadcast/start", ...manageRoles, validateObjectId("pairingId"), validate(startBroadcastSchema), startBroadcast);
+router.post("/broadcasts/:broadcastId/end", ...manageRoles, validateObjectId("broadcastId"), endBroadcast);
+router.get("/pairings/:pairingId/broadcast", optionalAuthMiddleware, validateObjectId("pairingId"), getPairingBroadcast);
+router.get("/broadcasts/:broadcastId/frames", optionalAuthMiddleware, validateObjectId("broadcastId"), listBroadcastFrames);
 
 router.post("/device/heartbeat", deviceHeartbeat);
 router.post("/device/frames", upload.single("image"), deviceFrameUpload);

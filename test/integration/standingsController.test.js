@@ -1,12 +1,12 @@
 const { describe, it, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
-const { startTestServer, stopTestServer, reseed, makeClient } = require("../../test-helpers/server");
+const { startTestServer, stopTestServer, reseed, makeClient, login } = require("../../test-helpers/server");
 
 // The seeded "Sunday Family Chess Festival" has three completed rounds with
 // known results, so the standings are deterministic:
 //   Nora Gallo 2.5 (2 wins) > Paolo Riva 2.0 (1) > Sara Marino 1.5 (1) > Tommaso Leone 0.0 (0)
 describe("standingsController", () => {
-  let ctx, client, eventId, sectionId;
+  let ctx, client, token, eventId, sectionId;
 
   before(async () => {
     ctx = await startTestServer();
@@ -15,6 +15,7 @@ describe("standingsController", () => {
   after(() => stopTestServer(ctx));
   beforeEach(async () => {
     await reseed();
+    token = await login(ctx.base);
     const bundle = await client.request("/api/events/sunday-family-chess-festival");
     eventId = bundle.body.data._id;
     sectionId = bundle.body.data.sections[0]._id;
@@ -26,6 +27,15 @@ describe("standingsController", () => {
       assert.equal(res.status, 200);
       const order = res.body.data.map((e) => `${e.lastName}:${e.points}:${e.wins}`);
       assert.deepEqual(order, ["Gallo:2.5:2", "Riva:2:1", "Marino:1.5:1", "Leone:0:0"]);
+      assert.equal("email" in res.body.data[0].player, false, "anonymous standings are sanitized");
+    });
+
+    it("blocks anonymous standings for private events", async () => {
+      const privateEvent = await client.request("/api/events/junior-rapid-challenge", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const res = await client.request(`/api/events/${privateEvent.body.data._id}/standings`);
+      assert.equal(res.status, 403);
     });
 
     it("404s an unknown event", async () => {

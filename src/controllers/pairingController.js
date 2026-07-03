@@ -2,9 +2,15 @@ const Event = require("../models/Event");
 const Round = require("../models/Round");
 const Pairing = require("../models/Pairing");
 const Player = require("../models/Player");
-const { canManageEvent } = require("../utils/permissions");
+const { canManageEvent, canViewEvent } = require("../utils/permissions");
 
 const listPairings = async (req, res) => {
+  const round = await Round.findById(req.params.roundId);
+  if (!round) return res.status(404).json({ success: false, message: "Round not found" });
+  const event = await Event.findById(round.event);
+  if (!canViewEvent(req.user, event)) {
+    return res.status(403).json({ success: false, message: "This event is not public" });
+  }
   const pairings = await Pairing.find({ round: req.params.roundId }).sort({ boardNumber: 1 }).lean();
   res.json({ success: true, data: pairings });
 };

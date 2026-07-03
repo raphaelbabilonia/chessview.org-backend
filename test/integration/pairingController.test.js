@@ -33,6 +33,14 @@ describe("pairingController", () => {
       assert.equal(res.status, 200);
       assert.equal(res.body.data.length, 1);
     });
+
+    it("blocks anonymous pairings for private events", async () => {
+      const event = await client.request("/api/events/chess-view-open-cuneo");
+      await client.json("PATCH", `/api/events/${event.body.data._id}`, { isPublic: false }, token);
+
+      const res = await client.request(`/api/rounds/${roundId}/pairings`);
+      assert.equal(res.status, 403);
+    });
   });
 
   describe("POST /api/rounds/:roundId/pairings", () => {

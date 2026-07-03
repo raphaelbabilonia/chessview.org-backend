@@ -2,7 +2,7 @@ const Event = require("../models/Event");
 const Section = require("../models/Section");
 const Registration = require("../models/Registration");
 const Player = require("../models/Player");
-const { canManageEvent } = require("../utils/permissions");
+const { canManageEvent, isPublicEvent } = require("../utils/permissions");
 
 const createEventRegistration = async (req, res) => {
   const { section } = req.body;
@@ -15,6 +15,9 @@ const createEventRegistration = async (req, res) => {
   }
   if (event.registrationStatus !== "open") {
     return res.status(400).json({ success: false, message: "Registrations are not open for this event" });
+  }
+  if (!isPublicEvent(event)) {
+    return res.status(403).json({ success: false, message: "This event is not accepting public registrations" });
   }
   const registration = await Registration.create({
     ...req.body,

@@ -58,6 +58,32 @@ describe("eventController", () => {
       const slugs = res.body.data.map((e) => e.slug);
       assert.ok(slugs.includes("junior-rapid-challenge"), "owner sees their draft");
     });
+
+    it("treats text filters as literal search strings", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        { title: "Chess View Open Cuneo [A]" }
+      );
+
+      const literal = await client.request("/api/events?includePast=true&search=%5BA%5D");
+      assert.equal(literal.status, 200);
+      assert.ok(literal.body.data.some((event) => event.slug === "chess-view-open-cuneo"));
+
+      const invalidRegex = await client.request("/api/events?includePast=true&search=(");
+      assert.equal(invalidRegex.status, 200);
+      assert.deepEqual(invalidRegex.body.data, []);
+    });
+
+    it("does not expose draft events through public status filters", async () => {
+      await Event.updateOne({ slug: "junior-rapid-challenge" }, { isPublic: true });
+
+      const res = await client.request("/api/events?includePast=true&status=draft");
+      assert.equal(res.status, 200);
+      assert.equal(
+        res.body.data.some((event) => event.slug === "junior-rapid-challenge"),
+        false
+      );
+    });
   });
 
   describe("GET /api/events/:id", () => {
@@ -90,6 +116,28 @@ describe("eventController", () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       assert.equal(owner.status, 200, "owner can view their own draft");
+    });
+
+    it("does not expose draft details even when isPublic is accidentally true", async () => {
+      await Event.updateOne({ slug: "junior-rapid-challenge" }, { isPublic: true });
+
+      const anon = await client.request("/api/events/junior-rapid-challenge");
+      assert.equal(anon.status, 403, "draft event remains hidden");
+
+      const owner = await client.request("/api/events/junior-rapid-challenge", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      assert.equal(owner.status, 200, "owner still sees their draft");
+    });
+
+    it("sanitizes public event bundles for anonymous callers", async () => {
+      const res = await client.request("/api/events/chess-view-open-cuneo");
+      assert.equal(res.status, 200);
+      assert.equal(res.body.data.registrations.length, 0, "public bundle omits registrations");
+      assert.equal("email" in res.body.data.organizer, false, "organizer email is private");
+      assert.equal("email" in res.body.data.players[0], false, "player email is private");
+      assert.equal("birthYear" in res.body.data.players[0], false, "player birth year is private");
+      assert.equal("email" in res.body.data.standings[0].player, false, "standings embed sanitized players");
     });
   });
 
@@ -152,6 +200,11 @@ describe("eventController", () => {
   });
 
   describe("PATCH /api/events/:id", () => {
+    it("rejects a malformed id with 400", async () => {
+      const res = await client.json("PATCH", "/api/events/not-an-object-id", { city: "Nope" }, token);
+      assert.equal(res.status, 400);
+    });
+
     it("rejects an empty update with 422", async () => {
       const ev = await client.request("/api/events/chess-view-open-cuneo");
       const res = await client.json("PATCH", `/api/events/${ev.body.data._id}`, {}, token);

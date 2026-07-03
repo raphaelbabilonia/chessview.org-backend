@@ -13,6 +13,15 @@ const { parseOrigins } = require("./config/env");
 const app = express();
 const allowedOrigins = parseOrigins();
 
+app.disable("x-powered-by");
+
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+});
+
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === "development") {
     const start = Date.now();

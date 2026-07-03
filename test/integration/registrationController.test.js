@@ -24,7 +24,10 @@ describe("registrationController", () => {
     const bundle = await openCuneoBundle(client);
     eventId = bundle._id;
     sectionId = bundle.sections[0]._id;
-    registrationId = bundle.registrations[0]._id; // Luca Bianchi, pending
+    const registrations = await client.request(`/api/events/${eventId}/registrations`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    registrationId = registrations.body.data[0]._id; // Luca Bianchi, pending
   });
 
   describe("POST /api/events/:eventId/registrations", () => {

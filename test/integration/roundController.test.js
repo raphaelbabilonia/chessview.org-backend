@@ -32,6 +32,14 @@ describe("roundController", () => {
       assert.equal(res.status, 200);
       assert.equal(res.body.data.length, 1, "open-cuneo seeds one round");
     });
+
+    it("blocks anonymous round lists for private events", async () => {
+      const privateEvent = await client.request("/api/events/junior-rapid-challenge", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const res = await client.request(`/api/events/${privateEvent.body.data._id}/rounds`);
+      assert.equal(res.status, 403);
+    });
   });
 
   describe("POST /api/events/:eventId/rounds", () => {

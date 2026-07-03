@@ -32,6 +32,20 @@ describe("playerController", () => {
       const res = await client.request(`/api/events/${eventId}/players`);
       assert.equal(res.status, 200);
       assert.equal(res.body.data.length, 2, "open-cuneo seeds two players");
+      assert.equal("email" in res.body.data[0], false, "anonymous player list is sanitized");
+    });
+
+    it("blocks anonymous player lists for private events", async () => {
+      const privateEvent = await client.request("/api/events/junior-rapid-challenge", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const res = await client.request(`/api/events/${privateEvent.body.data._id}/players`);
+      assert.equal(res.status, 403);
+    });
+
+    it("rejects a malformed event id with 400", async () => {
+      const res = await client.request("/api/events/not-an-object-id/players");
+      assert.equal(res.status, 400);
     });
   });
 

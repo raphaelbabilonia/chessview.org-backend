@@ -10,7 +10,17 @@ const canManageEvent = (user, event) => {
   return user.role === "organizer" && getId(event.organizer) === getId(user);
 };
 
+const publicEventStatuses = ["published", "completed"];
+
+const isPublicEvent = (event) =>
+  Boolean(event?.isPublic && publicEventStatuses.includes(event.status));
+
+const canViewEvent = (user, event) => isPublicEvent(event) || canManageEvent(user, event);
+
 module.exports = {
   canManageEvent,
-  getId
+  canViewEvent,
+  getId,
+  isPublicEvent,
+  publicEventStatuses
 };

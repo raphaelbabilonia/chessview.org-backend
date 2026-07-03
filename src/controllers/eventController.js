@@ -7,11 +7,12 @@ const Pairing = require("../models/Pairing");
 const Registration = require("../models/Registration");
 const EventDocument = require("../models/EventDocument");
 const calculateStandings = require("../utils/calculateStandings");
-const { canManageEvent } = require("../utils/permissions");
+const { canManageEvent, canViewEvent, publicEventStatuses } = require("../utils/permissions");
+const { publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
 const slugify = require("../utils/slugify");
 
-const publicStatuses = ["published", "completed"];
 const MAX_PUBLIC_LIMIT = 100;
+const MAX_TEXT_FILTER_LENGTH = 120;
 
 const startOfTodayUtc = () => {
   const now = new Date();
@@ -19,6 +20,24 @@ const startOfTodayUtc = () => {
 };
 
 const booleanQuery = (value) => String(value || "").toLowerCase() === "true";
+
+const firstQueryValue = (value) => (Array.isArray(value) ? value[0] : value);
+
+const queryText = (value) =>
+  String(firstQueryValue(value) || "")
+    .trim()
+    .slice(0, MAX_TEXT_FILTER_LENGTH);
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const literalRegex = (value) => new RegExp(escapeRegex(value), "i");
+
+const queryDate = (value) => {
+  const raw = firstQueryValue(value);
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number(value);
@@ -93,29 +112,39 @@ const filterEvents = (events, query) => {
 const listEvents = async (req, res) => {
   const pagination = paginationFromQuery(req.query);
   const mine = req.query.mine === "true";
-  const explicitDateWindow = req.query.activeFrom || req.query.from || req.query.to;
+  const search = queryText(req.query.search);
+  const city = queryText(req.query.city);
+  const country = queryText(req.query.country);
+  const source = queryText(req.query.source);
+  const status = queryText(req.query.status);
+  const activeFrom = queryDate(req.query.activeFrom);
+  const from = queryDate(req.query.from);
+  const to = queryDate(req.query.to);
+  const explicitDateWindow = activeFrom || from || to;
   const filter =
     mine
       ? req.user?.role === "admin"
         ? {}
         : { organizer: req.user?._id }
-      : { isPublic: true, status: { $in: publicStatuses } };
+      : { isPublic: true, status: { $in: publicEventStatuses } };
 
-  if (req.query.search) filter.title = { $regex: req.query.search, $options: "i" };
-  if (req.query.city) filter.city = { $regex: req.query.city, $options: "i" };
-  if (req.query.country) filter.country = { $regex: req.query.country, $options: "i" };
-  if (req.query.source) filter["source.name"] = { $regex: req.query.source, $options: "i" };
-  if (req.query.status) filter.status = req.query.status;
-  if (req.query.activeFrom) {
-    filter.endDate = { $gte: new Date(req.query.activeFrom) };
+  if (search) filter.title = literalRegex(search);
+  if (city) filter.city = literalRegex(city);
+  if (country) filter.country = literalRegex(country);
+  if (source) filter["source.name"] = literalRegex(source);
+  if (status) {
+    filter.status = mine || publicEventStatuses.includes(status) ? status : "__not_public__";
+  }
+  if (activeFrom) {
+    filter.endDate = { $gte: activeFrom };
   }
   if (!mine && !booleanQuery(req.query.includePast) && !explicitDateWindow) {
     filter.endDate = { $gte: startOfTodayUtc() };
   }
-  if (req.query.from || req.query.to) {
+  if (from || to) {
     filter.startDate = {};
-    if (req.query.from) filter.startDate.$gte = new Date(req.query.from);
-    if (req.query.to) filter.startDate.$lte = new Date(req.query.to);
+    if (from) filter.startDate.$gte = from;
+    if (to) filter.startDate.$lte = to;
   }
 
   let query = Event.find(filter).sort({ startDate: 1 });
@@ -144,9 +173,10 @@ const getEvent = async (req, res) => {
     : { slug: req.params.id };
   const event = await Event.findOne(query).populate("organizer", "name email role").lean();
   if (!event) return res.status(404).json({ success: false, message: "Event not found" });
-  if (!event.isPublic && !canManageEvent(req.user, event)) {
+  if (!canViewEvent(req.user, event)) {
     return res.status(403).json({ success: false, message: "This event is not public" });
   }
+  const manageable = canManageEvent(req.user, event);
 
   const [sections, players, rounds, pairings, registrations, documents] = await Promise.all([
     Section.find({ event: event._id }).sort({ _id: 1 }).lean(),
@@ -156,18 +186,20 @@ const getEvent = async (req, res) => {
     Registration.find({ event: event._id }).sort({ _id: 1 }).lean(),
     EventDocument.find({ event: event._id }).sort({ type: 1, label: 1 }).lean()
   ]);
+  const safePlayers = manageable ? players : players.map(publicPlayer);
 
   res.json({
     success: true,
     data: {
       ...event,
+      organizer: manageable ? event.organizer : publicOrganizer(event.organizer),
       sections,
-      players,
+      players: safePlayers,
       rounds,
       pairings,
-      registrations,
+      registrations: manageable ? registrations : [],
       documents,
-      standings: calculateStandings(players, pairings)
+      standings: calculateStandings(safePlayers, pairings)
     }
   });
 };

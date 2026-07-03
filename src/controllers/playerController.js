@@ -2,13 +2,20 @@ const Event = require("../models/Event");
 const Section = require("../models/Section");
 const Player = require("../models/Player");
 const Pairing = require("../models/Pairing");
-const { canManageEvent } = require("../utils/permissions");
+const { canManageEvent, canViewEvent } = require("../utils/permissions");
+const { publicPlayer } = require("../utils/publicSerializers");
 
 const listPlayers = async (req, res) => {
+  const event = await Event.findById(req.params.eventId);
+  if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+  if (!canViewEvent(req.user, event)) {
+    return res.status(403).json({ success: false, message: "This event is not public" });
+  }
   const filter = { event: req.params.eventId };
   if (req.query.section) filter.section = req.query.section;
   const players = await Player.find(filter).sort({ lastName: 1, firstName: 1 }).lean();
-  res.json({ success: true, data: players });
+  const data = canManageEvent(req.user, event) ? players : players.map(publicPlayer);
+  res.json({ success: true, data });
 };
 
 const addPlayer = async (req, res) => {

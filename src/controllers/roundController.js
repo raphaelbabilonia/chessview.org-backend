@@ -1,9 +1,14 @@
 const Event = require("../models/Event");
 const Section = require("../models/Section");
 const Round = require("../models/Round");
-const { canManageEvent } = require("../utils/permissions");
+const { canManageEvent, canViewEvent } = require("../utils/permissions");
 
 const listRounds = async (req, res) => {
+  const event = await Event.findById(req.params.eventId);
+  if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+  if (!canViewEvent(req.user, event)) {
+    return res.status(403).json({ success: false, message: "This event is not public" });
+  }
   const filter = { event: req.params.eventId };
   if (req.query.section) filter.section = req.query.section;
   const rounds = await Round.find(filter).sort({ number: 1 }).lean();

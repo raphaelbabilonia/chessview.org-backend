@@ -7,7 +7,7 @@ const Device = require("../models/Device");
 const Event = require("../models/Event");
 const Frame = require("../models/Frame");
 const Pairing = require("../models/Pairing");
-const { canManageEvent } = require("../utils/permissions");
+const { canManageEvent, canViewEvent } = require("../utils/permissions");
 
 const uploadRoot = path.join(__dirname, "..", "..", "uploads", "broadcast");
 
@@ -178,12 +178,24 @@ const endBroadcast = async (req, res) => {
 };
 
 const getPairingBroadcast = async (req, res) => {
+  const pairing = await Pairing.findById(req.params.pairingId).lean();
+  if (!pairing) return res.status(404).json({ success: false, message: "Pairing not found" });
+  const event = await Event.findById(pairing.event);
+  if (!canViewEvent(req.user, event)) {
+    return res.status(403).json({ success: false, message: "This event is not public" });
+  }
   const session = await BroadcastSession.findOne({ pairing: req.params.pairingId }).sort({ createdAt: -1 }).lean();
   const frames = session ? await Frame.find({ broadcast: session._id }).sort({ deviceSeq: 1 }).lean() : [];
   res.json({ success: true, data: { session, frames } });
 };
 
 const listBroadcastFrames = async (req, res) => {
+  const session = await BroadcastSession.findById(req.params.broadcastId).lean();
+  if (!session) return res.status(404).json({ success: false, message: "Broadcast not found" });
+  const event = await Event.findById(session.event);
+  if (!canViewEvent(req.user, event)) {
+    return res.status(403).json({ success: false, message: "This event is not public" });
+  }
   const frames = await Frame.find({ broadcast: req.params.broadcastId }).sort({ deviceSeq: 1 }).lean();
   res.json({ success: true, data: frames });
 };
