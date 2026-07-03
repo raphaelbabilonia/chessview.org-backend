@@ -21,7 +21,8 @@ The frontend lives at [raphaelbabilonia/chessview.org-frontend](https://github.c
 - Broadcast/device endpoints for experimental camera frame upload workflows.
 - Request validation with zod at the HTTP boundary (schemas double as mass-assignment allowlists).
 - MongoDB persistence (Mongoose); tests run against an ephemeral in-memory MongoDB.
-- Admin-only scrape source/job API for the separate admin frontend.
+- Curated data workflow: event/news source metadata is stored only when entered manually or by a supervised agentic workflow.
+- Agentic publishing: approved JSON can be published through private `/api/agent-ingest/*` endpoints guarded by `AGENT_PUBLISH_TOKEN`; secrets stay in production env or local `.env.local`, never in the public repo.
 
 ## Tech Stack
 
@@ -70,21 +71,13 @@ JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:3000
 CLIENT_URLS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173,http://127.0.0.1:5174
 NODE_ENV=development
-SCRAPER_USER_AGENT=ChessViewScraper/0.1 (+https://chessview.org)
-SCRAPER_ORGANIZER_EMAIL=sources@chessview.local
-SCRAPER_ORGANIZER_NAME=ChessView Sources
-SCRAPER_WORKER_MODE=apply
-SCRAPER_WORKER_INTERVAL_MS=60000
-SCRAPER_WORKER_LIMIT=5
-SCRAPER_WORKER_LEASE_MS=600000
-SCRAPER_WORKER_ENSURE_DEFAULTS=true
 ```
 
 Use a strong `JWT_SECRET` in any shared, staging, or production environment. Do not commit `.env`.
 
 ## Verification
 
-Run the full local backend verification before pushing scraper/API changes:
+Run the full local backend verification before pushing API changes:
 
 ```bash
 npm run verify
@@ -92,128 +85,11 @@ npm run verify
 
 This runs the Node test suite, checks JavaScript syntax, and audits dependencies at moderate severity or higher.
 
-## Tournament Source Ingestion
+## Curated Tournament Data
 
-The aggregator uses source-specific adapters. Structured APIs are preferred; cautious HTML/source discovery is only used when metadata is reliable and attribution stays clear.
+The backend does not run automatic scrapers, crawler jobs, or source-specific API importers. Public event data is created and updated through the ChessView API by organizers, admins, or supervised agentic workflows that review source material before publishing.
 
-Default source setup creates:
-
-| Source | Type | Default | Notes |
-| --- | --- | --- | --- |
-| Vesus - Public | `vesus` | enabled | Public GraphQL/event-stream API from vesus.org. Imports current/future event metadata by default, plus regulations, players/standings, tie-breaks, rounds, byes/forfeits, and Vesus Pairings results when publicly published. Archived Vesus imports must be requested explicitly for audits/backfills. |
-| Lichess Broadcasts - World | `lichess-broadcasts` | enabled | Structured API. Good global live/broadcast coverage. |
-| ChessReg - USA | `chessreg-api` | enabled | Public API, good North America source. |
-| Info64 - Spain and Latin America | `info64` | enabled | Public tournament pages with dates, locations, official/results links, attribution, and robots-aware rate limiting. |
-| ChessArbiter - Poland | `chessarbiter` | enabled | Public Polish calendar table with source/result URLs and conservative filtering for non-tournament rows. |
-| AICF - India | `aicf-calendar` | enabled | Public all-events table with event codes, dates, places, and brochure/regulations PDFs. Past events are skipped by default. |
-| FIDE Calendar - Italy | `fide-calendar` | disabled | Discovers events, but does not import unless exact dates are available or date-window fallback is explicitly enabled. |
-| FIDE Rated Tournaments - Italy | `fide-rated-tournaments` | disabled | Adapter is ready for DataTables JSON, but current direct endpoint probes returned empty responses. |
-| Chess-Results - Global | `manual-review` | disabled | High-value source; partnership or a conservative adapter should be agreed before enabling. |
-| Federscacchi - Italy | `manual-review` | disabled | Official pages confirmed, no stable structured event feed confirmed yet. |
-| Vesus - Italy | `manual-review` | disabled | Legacy candidate record kept for review; the active public adapter is `vesus-public`. |
-| US Chess, Chess.com, Tornelo, Schachbund, FFE, ECF, KNSB, Schaakkalender, Canadian Chess Federation | `manual-review` | disabled | Tracked as candidate sources. Some need source-specific adapters; some currently require API/partnership access or are blocked for server-side scraping. |
-
-The runner defaults to dry-run mode:
-
-```bash
-npm run scrape:lichess -- --query world --limit 5
-```
-
-To persist the normalized events into MongoDB, run:
-
-```bash
-npm run scrape:lichess -- --query world --limit 5 --apply
-```
-
-Imported events are stored as public events owned by the technical source organizer configured through `SCRAPER_ORGANIZER_EMAIL`. Repeated imports update the same records by `source.originalId` or `source.url`, instead of creating duplicates.
-
-For the longer-running ingestion flow, use configured scrape sources and jobs:
-
-```bash
-npm run scrape:sources -- --ensure-defaults
-npm run scrape:sources -- --source vesus-public --mode dry-run --limit 5
-npm run scrape:sources -- --source lichess-broadcasts-world --mode dry-run --limit 5
-npm run scrape:sources -- --source chessreg-api-usa --mode dry-run --limit 5
-npm run scrape:sources -- --source info64-spain-latam --mode dry-run --limit 5
-npm run scrape:sources -- --source chessarbiter-poland --mode dry-run --limit 5
-npm run scrape:sources -- --source aicf-india --mode dry-run --limit 5
-npm run scrape:sources -- --source vesus-public --mode apply --limit 10
-npm run scrape:sources -- --source lichess-broadcasts-world --mode apply --limit 5
-npm run scrape:sources -- --source chessreg-api-usa --mode apply --limit 5
-npm run scrape:sources -- --source info64-spain-latam --mode apply --limit 10
-npm run scrape:sources -- --source chessarbiter-poland --mode apply --limit 10
-npm run scrape:sources -- --source aicf-india --mode apply --limit 10
-npm run scrape:sources -- --run-due --mode apply
-```
-
-Vesus defaults to `INPROGRESS,FUTURE` so public ingestion does not fill the main catalog with old tournaments. Use archived pulls only for explicit audit/backfill work:
-
-```bash
-npm run scrape:sources -- --source vesus-public --mode dry-run --limit 10 --timings ARCHIVED
-```
-
-Before enabling a worker or a new source, run:
-
-```bash
-npm run scrape:doctor -- --ensure-defaults --limit 2
-npm run scrape:doctor -- --all --limit 1
-```
-
-To inspect local imported data without calling external websites, run:
-
-```bash
-npm run scrape:report
-npm run scrape:report -- --active-from 2026-06-27
-```
-
-The report shows imported and active event counts, source status, latest scrape jobs, warnings, missing required fields, and duplicate checks.
-
-To import tournament detail after metadata exists, use the detail importer. It refreshes imported sections, players, rounds, pairings, source standings, and event documents for supported sources, and keeps manual organizer data separate from imported records. Detail imports are active-event and incremental by default: past events are skipped unless `--include-past` is passed, and events refreshed within `--stale-hours` are skipped unless `--stale-hours 0` is used.
-
-```bash
-npm run scrape:details -- --source Vesus --download-documents --rate-limit-ms 1200 --max-document-bytes 15000000
-npm run scrape:details -- --source Info64 --download-documents --rate-limit-ms 1000 --max-document-bytes 15000000
-npm run scrape:details -- --source "Lichess Broadcasts" --download-documents --ignore-robots --rate-limit-ms 1000 --max-document-bytes 15000000
-npm run scrape:details -- --source AICF --download-documents --rate-limit-ms 1000 --max-document-bytes 15000000
-npm run scrape:details -- --source ChessArbiter --download-documents --rate-limit-ms 1000 --max-document-bytes 15000000
-npm run scrape:details -- --source ChessReg --download-documents --rate-limit-ms 1000 --max-document-bytes 15000000
-```
-
-Recommended day-to-day Vesus flow:
-
-```bash
-npm run scrape:sources -- --source vesus-public --mode apply --limit 20
-npm run scrape:details -- --source Vesus --missing-detail-only --rate-limit-ms 1200
-```
-
-Useful detail importer controls:
-
-- `--active-from YYYY-MM-DD`: active window start; defaults to today.
-- `--include-past`: explicitly include past/archive events.
-- `--missing-detail-only`: only fetch events with no detail, empty detail, or failed detail.
-- `--plan-only`: print the selected events without calling external source detail pages.
-- `--stale-hours N`: skip recently refreshed events; defaults to `6`, use `0` to force refresh.
-- `--download-documents`: download binary documents locally. Leave it off for routine runs to keep imports light.
-
-Current detail coverage:
-
-| Source | Detail coverage |
-| --- | --- |
-| Vesus | Public event metadata, organizer/contact details, regulations, event links, source/result pages, players/standings, player titles, birth years, performance/rating changes, tie-breaks, match strings, rounds, pairings, accumulated board points, half-point byes, zero-point byes, and forfeits from Vesus Pairings when the tournament has published public rounds. Local VCE/VCT/TRF exports are not imported because the public export webhook is not available without the app's authenticated workspace context. |
-| Info64 | Players, source standings, round pairings/results, standings/crosstable/games/stat links, PDF/XLS exports. One event can expose rounds with no pairing rows; in that case source standings still render. |
-| Lichess Broadcasts | Rounds, players and pairings derived from PGN tags, PGN files, standings/regulation links. The PGN API is an official data endpoint, so local PGN download is run with `--ignore-robots` only for this source. |
-| AICF | Source pages and brochure/regulation PDFs where available. The public calendar pages do not expose players, rounds, or pairings. |
-| ChessArbiter | Source pages and useful PDF/Word attachments where exposed. The sampled public pages do not expose parseable players, rounds, or pairings. |
-| ChessReg | Source registration links and metadata/capacity from the public API. Public detail/player endpoints were not found in the tested API surface. |
-
-To audit imported coverage and generated files:
-
-```bash
-npm run events:audit -- --active-from 2026-06-29
-npm run events:audit -- --active-from 2026-06-29 --check-links --concurrency 1 --link-delay-ms 500 --link-retry-delay-ms 3000 --link-timeout-ms 10000
-```
-
-Audit JSON/CSV files are written under `docs/audits/`. Use the slower link-check form for sources such as Info64 that return HTTP 429 if checked in bursts.
+Event records still preserve source and attribution fields such as `source`, `externalLinks`, `websiteUrl`, `resultsUrl`, and `regulationsUrl`. These fields are for curated/manual metadata and public links, not for backend-side automatic ingestion.
 
 To backfill missing event metadata from already imported text without calling external websites, run:
 
@@ -223,30 +99,6 @@ npm run events:backfill -- --apply
 ```
 
 The backfill only fills empty `timeControl` or `ratingType` values when they can be inferred safely from stored title/description text.
-
-For a long-running worker process, run:
-
-```bash
-npm run scrape:worker -- --mode apply --interval-ms 60000 --limit 5
-```
-
-The worker uses MongoDB-backed source leases (`lockedUntil` / `lockedBy`) so multiple worker processes do not claim the same due source at the same time. It is suitable for PM2, Docker, a system service, or any scheduler that supervises a process. In local development, use a reachable MongoDB instance through `MONGO_URI`.
-
-The admin API exposes the same workflow under `/api/admin` and requires an admin JWT:
-
-- `GET /api/admin/scrape-sources`
-- `GET /api/admin/scrape-health`
-- `POST /api/admin/scrape-sources/defaults`
-- `POST /api/admin/scrape-sources`
-- `PATCH /api/admin/scrape-sources/:id`
-- `POST /api/admin/scrape-sources/:id/run`
-- `POST /api/admin/scrape-jobs/run-due`
-- `GET /api/admin/scrape-jobs`
-- `GET /api/admin/scrape-jobs/:id`
-
-Source adapters should use the shared scraper HTTP client so every integration has a clear `User-Agent`, timeout, per-host rate limiting, optional robots.txt checks, redirect handling, binary download limits, and POST form support. API sources such as Lichess Broadcasts and ChessReg can disable robots checks in source config while HTML scrapers should leave them enabled. Imported events deduplicate first by external source ID/URL and then by a normalized key built from title, start date, city, and country.
-
-Do not import sources that cannot provide at least title, source URL, and trustworthy start date. The FIDE Calendar adapter intentionally skips map-discovered events when the exact event dates are not exposed.
 
 ## Demo Users
 
@@ -309,7 +161,8 @@ Errors use:
 
 - Some sources only expose tournament metadata/documents, not players or pairings.
 - Advanced chess tiebreaks are not implemented yet.
-- Chess-Results, Vesus, Federscacchi, US Chess, Chess.com, Tornelo, and several federation calendars still need a source-specific adapter, official feed, or partnership before automatic imports.
+- External tournament and news discovery is intentionally handled outside this backend by supervised manual or agentic workflows.
+- The backend may receive already-approved agentic JSON through private ingest endpoints, but it does not scrape external websites or publish unvalidated items directly.
 - Email notifications and real-time updates are future work.
 
 ## Clean-room Note

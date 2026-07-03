@@ -1,10 +1,11 @@
 const cors = require("cors");
 const express = require("express");
 const path = require("path");
+const agentIngestRoutes = require("./routes/agentIngestRoutes");
 const authRoutes = require("./routes/authRoutes");
 const broadcastRoutes = require("./routes/broadcastRoutes");
 const eventRoutes = require("./routes/eventRoutes");
-const scrapeRoutes = require("./routes/scrapeRoutes");
+const newsRoutes = require("./routes/newsRoutes");
 const tournamentRoutes = require("./routes/tournamentRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
 const { parseOrigins } = require("./config/env");
@@ -43,10 +44,11 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/agent-ingest", agentIngestRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/news", newsRoutes);
 app.use("/api", tournamentRoutes);
 app.use("/api", broadcastRoutes);
-app.use("/api/admin", scrapeRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });

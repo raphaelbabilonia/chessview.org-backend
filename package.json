@@ -16,17 +16,10 @@
     "verify": "npm test && npm run check:syntax && npm audit --audit-level=moderate",
     "smoke:broadcast": "node --test test/integration/broadcastController.test.js",
     "events:backfill": "node src/scripts/backfillEventMetadata.js",
-    "scrape:lichess": "node src/scripts/scrapeLichessBroadcasts.js",
-    "scrape:sources": "node src/scripts/runScrapeSources.js",
-    "scrape:doctor": "node src/scripts/scrapeDoctor.js",
-    "scrape:report": "node src/scripts/scrapeReport.js",
-    "scrape:worker": "node src/scripts/scrapeWorker.js",
-    "events:audit": "node src/scripts/auditImportedEvents.js",
-    "scrape:details": "node src/scripts/importEventDetails.js"
+    "agent:publish": "node src/scripts/publishApprovedAgentContent.js"
   },
   "dependencies": {
     "bcryptjs": "^3",
-    "cheerio": "^1.0.0-rc.12",
     "cors": "^2",
     "dotenv": "^17",
     "express": "^5",

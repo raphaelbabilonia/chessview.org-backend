@@ -2,7 +2,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const { connectDB } = require("../config/db");
 const Event = require("../models/Event");
-const { inferRatingType, inferTimeControl } = require("../scrapers/tournamentUtils");
+const { inferRatingType, inferTimeControl } = require("../utils/tournamentInference");
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 

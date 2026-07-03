@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chessview.org/schemas/approved-tournament.schema.json",
+  "title": "Approved Tournament",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "title",
+    "startDate",
+    "country",
+    "sourceName",
+    "sourceUrl",
+    "confidence",
+    "qualityFlags",
+    "evidenceRefs",
+    "dedupeKey",
+    "lastCheckedAt",
+    "approvedAt",
+    "approvedBy",
+    "publishStatus"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "startDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "endDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "country": {
+      "type": "string",
+      "minLength": 2
+    },
+    "city": {
+      "type": "string"
+    },
+    "venue": {
+      "type": "string"
+    },
+    "timeControl": {
+      "type": "string",
+      "enum": ["standard", "rapid", "blitz", "mixed", "unknown"]
+    },
+    "ratingType": {
+      "type": "string",
+      "enum": ["FIDE", "national", "online", "unrated", "mixed", "unknown"]
+    },
+    "sourceName": {
+      "type": "string",
+      "minLength": 2
+    },
+    "sourceUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "websiteUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "registrationUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "resultsUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "regulationsUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "externalLinks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "url"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 2
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "originalId": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "qualityFlags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "missing_city",
+          "missing_venue",
+          "missing_end_date",
+          "date_uncertain",
+          "time_control_uncertain",
+          "rating_type_uncertain",
+          "registration_link_missing",
+          "results_link_missing",
+          "duplicate_possible",
+          "source_requires_manual_check",
+          "legal_review_required",
+          "benchmark_only",
+          "low_confidence",
+          "stale_source"
+        ]
+      }
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["refId", "sourceUrl", "capturedAt", "excerpt"],
+        "properties": {
+          "refId": {
+            "type": "string",
+            "minLength": 3
+          },
+          "path": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "excerpt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dedupeKey": {
+      "type": "string",
+      "minLength": 8
+    },
+    "lastCheckedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approvedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approvedBy": {
+      "type": "string",
+      "minLength": 2
+    },
+    "publishStatus": {
+      "type": "string",
+      "const": "ready"
+    }
+  }
+}
+

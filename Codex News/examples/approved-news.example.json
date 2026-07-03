@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "title": "Example Grand Prix Final Announced For Milan",
+  "slug": "example-grand-prix-final-announced-for-milan",
+  "summary": "The example source says a new Grand Prix final will be held in Milan in late 2026. The story is suitable for Chess View because it identifies the event, place, source, and next official link without reproducing the original article.",
+  "summaryType": "generated",
+  "sourceName": "Example Chess News",
+  "sourceUrl": "https://example.org/news/grand-prix-final-milan-2026",
+  "canonicalUrl": "https://example.org/news/grand-prix-final-milan-2026",
+  "author": "Example Desk",
+  "publishedAt": "2026-07-03T10:00:00Z",
+  "updatedAt": "2026-07-03T11:00:00Z",
+  "language": "en",
+  "region": "europe",
+  "category": "tournament",
+  "imageUrl": "https://example.org/images/grand-prix-final.jpg",
+  "tags": ["grand-prix", "milan", "example"],
+  "relatedTournamentName": "Example Grand Prix Final 2026",
+  "relatedPlayerNames": ["Example Player"],
+  "relatedCoverage": [
+    {
+      "sourceName": "Example Federation",
+      "url": "https://example-federation.org/events/grand-prix-final-2026",
+      "relationship": "background"
+    }
+  ],
+  "originalId": "example-news-2026-grand-prix-final-milan",
+  "contentHash": "example-content-hash-001",
+  "confidence": 0.91,
+  "qualityFlags": [],
+  "evidenceRefs": [
+    {
+      "refId": "ev-001",
+      "path": "runs/2026-07-03/1800-example-news/evidence-001.md",
+      "sourceUrl": "https://example.org/news/grand-prix-final-milan-2026",
+      "canonicalUrl": "https://example.org/news/grand-prix-final-milan-2026",
+      "capturedAt": "2026-07-03T16:00:00Z",
+      "excerpt": "Example Grand Prix final announced for Milan in late 2026.",
+      "notes": "Example data for schema validation only."
+    }
+  ],
+  "dedupeKey": "2026-07-03|example-grand-prix-final-announced-for-milan",
+  "lastCheckedAt": "2026-07-03T16:00:00Z",
+  "approvedAt": "2026-07-03T16:30:00Z",
+  "approvedBy": "codex-review",
+  "publishStatus": "ready"
+}
+

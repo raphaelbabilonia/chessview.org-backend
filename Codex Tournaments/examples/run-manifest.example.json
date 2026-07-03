@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-07-03-1800-example-source",
+  "sourceSlug": "example-source",
+  "sourceName": "Example Source",
+  "objective": "Simulate a supervised discovery run with two candidates and one rejected duplicate.",
+  "startedAt": "2026-07-03T16:00:00Z",
+  "finishedAt": "2026-07-03T16:25:00Z",
+  "status": "completed_with_warnings",
+  "agent": "codex-example",
+  "queryUsed": [
+    "site:example.org chess tournament 2026",
+    "Example Source tournaments April 2026"
+  ],
+  "urlsVisited": [
+    {
+      "url": "https://example.org/tournaments/torino-spring-open-2026",
+      "checkedAt": "2026-07-03T16:00:00Z",
+      "status": "visited",
+      "notes": "Candidate created."
+    },
+    {
+      "url": "https://example.org/events/rapid-weekend-2026",
+      "checkedAt": "2026-07-03T16:15:00Z",
+      "status": "visited",
+      "notes": "Low-confidence candidate created."
+    },
+    {
+      "url": "https://example.org/old/torino-spring-open",
+      "checkedAt": "2026-07-03T16:20:00Z",
+      "status": "skipped",
+      "notes": "Duplicate of known Torino example."
+    }
+  ],
+  "evidenceFiles": [
+    "runs/2026-07-03/1800-example-source/evidence-001.md",
+    "runs/2026-07-03/1800-example-source/evidence-002.md"
+  ],
+  "candidatesCreated": [
+    "examples/tournament-candidate.example.json",
+    "examples/tournament-candidate-low-confidence.example.json"
+  ],
+  "rejectedItems": [
+    {
+      "fingerprint": "italy|torino|2026-04-18|example-torino-spring-open",
+      "reason": "Duplicate URL pattern in example run.",
+      "path": "examples/rejected-item.example.json"
+    }
+  ],
+  "errors": [
+    {
+      "message": "Example run includes one low-confidence item for review testing.",
+      "severity": "warning"
+    }
+  ],
+  "nextSuggestion": "Approve the Torino example and keep the Lyon rapid example in candidates until venue and rating details are confirmed."
+}
+

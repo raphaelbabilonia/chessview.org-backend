@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "rejectedAt": "2026-07-03T16:22:00Z",
+  "rejectedBy": "codex-example",
+  "fingerprint": "2026-07-03|example-grand-prix-final-announced-for-milan",
+  "sourceName": "Example Repost",
+  "sourceUrl": "https://example.org/repost/grand-prix-final-milan",
+  "canonicalUrl": "https://example.org/repost/grand-prix-final-milan",
+  "reason": "Duplicate repost of the primary example story.",
+  "doNotSuggestAgain": true
+}
+

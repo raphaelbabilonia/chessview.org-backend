@@ -1,0 +1,537 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-03",
+  "referenceDocument": "../Priority Sources for Chess News Aggregator.md",
+  "automationPolicy": "agent_supervised_only",
+  "sources": [
+    {
+      "slug": "fide-news",
+      "name": "FIDE News",
+      "url": "https://www.fide.com/news/",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 1,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Official source for FIDE events, championships, ratings, governance, and federation news.",
+        "Use short original summaries and link to canonical articles."
+      ]
+    },
+    {
+      "slug": "chess-com-news",
+      "name": "Chess.com News",
+      "url": "https://www.chess.com/news",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 2,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Major global source for breaking chess stories, elite events, online events, and platform news.",
+        "Do not reproduce article text; redirect to the original source."
+      ]
+    },
+    {
+      "slug": "chessbase-news",
+      "name": "ChessBase News",
+      "url": "https://en.chessbase.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 3,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Long-running chess media source for tournament reports, interviews, product news, and game analysis.",
+        "Avoid copying annotations or long excerpts."
+      ]
+    },
+    {
+      "slug": "the-week-in-chess",
+      "name": "The Week in Chess",
+      "url": "https://theweekinchess.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 4,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Useful for tournament coverage, weekly news, PGN links, and results discovery.",
+        "Do not copy PGN collections."
+      ]
+    },
+    {
+      "slug": "lichess-blog",
+      "name": "Lichess Blog",
+      "url": "https://lichess.org/@/Lichess/blog",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 5,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["api_review", "rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Useful for Lichess platform updates, titled arenas, broadcasts, and open-source chess ecosystem news.",
+        "Keep platform news separate from tournament news when categorizing."
+      ]
+    },
+    {
+      "slug": "chessdom",
+      "name": "Chessdom",
+      "url": "https://www.chessdom.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 6,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "High-volume chess news site covering live games, interviews, tournament reports, photos, and social reactions.",
+        "Watch for duplicate stories already covered by official sources."
+      ]
+    },
+    {
+      "slug": "new-in-chess",
+      "name": "New In Chess",
+      "url": "https://www.newinchess.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 7,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Magazine/editorial source for interviews, deep reports, podcasts, and premium-style chess journalism.",
+        "Flag paywall or rights uncertainty before approval."
+      ]
+    },
+    {
+      "slug": "take-take-take",
+      "name": "Take Take Take",
+      "url": "https://taketaketake.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 8,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Useful for modern event recaps, player following, and mobile-first chess storytelling.",
+        "Prefer partnership clarity for repeated review."
+      ]
+    },
+    {
+      "slug": "chessable-blog",
+      "name": "Chessable Blog",
+      "url": "https://www.chessable.com/blog/",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 9,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Useful for educational chess news, product updates, opening articles, and Chessable ecosystem content.",
+        "Category should often be education or technology rather than tournament."
+      ]
+    },
+    {
+      "slug": "chesstech-news",
+      "name": "ChessTech News",
+      "url": "https://www.chesstech.org",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 10,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Niche source for chess technology, tools, platforms, AI, broadcasting, and digital chess infrastructure.",
+        "Use technology category when appropriate."
+      ]
+    },
+    {
+      "slug": "us-chess-news",
+      "name": "US Chess News",
+      "url": "https://new.uschess.org/news",
+      "region": "USA",
+      "priorityGroup": 2,
+      "rank": 11,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official US Chess news source for American events, scholastic chess, federation updates, and national tournaments.",
+        "Use as primary source for US federation stories."
+      ]
+    },
+    {
+      "slug": "european-chess-union",
+      "name": "European Chess Union",
+      "url": "https://www.europechess.org",
+      "region": "Europe",
+      "priorityGroup": 2,
+      "rank": 12,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official ECU source for European championships, federation announcements, youth events, and continental news.",
+        "Prefer official event pages when available."
+      ]
+    },
+    {
+      "slug": "english-chess-federation",
+      "name": "English Chess Federation",
+      "url": "https://www.englishchess.org.uk/category/ecf-news/",
+      "region": "England / UK",
+      "priorityGroup": 2,
+      "rank": 13,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official English federation news.",
+        "Useful for team selections, ChessFest, youth events, arbiters, and national announcements."
+      ]
+    },
+    {
+      "slug": "federscacchi",
+      "name": "Federscacchi",
+      "url": "https://www.federscacchi.com/fsi/",
+      "region": "Italy",
+      "priorityGroup": 2,
+      "rank": 14,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official Italian federation source for national teams, youth events, championships, and federation communications.",
+        "Use Italian source attribution and short original summaries."
+      ]
+    },
+    {
+      "slug": "scacchierando",
+      "name": "Scacchierando",
+      "url": "https://www.scacchierando.it",
+      "region": "Italy",
+      "priorityGroup": 2,
+      "rank": 15,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Italian chess blog for national and international chess news.",
+        "Use for Italy-first discovery and commentary; avoid copying editorial text."
+      ]
+    },
+    {
+      "slug": "feda",
+      "name": "FEDA",
+      "url": "https://feda.org/feda2k16/category/noticias/",
+      "region": "Spain",
+      "priorityGroup": 2,
+      "rank": 16,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official Spanish federation news.",
+        "Useful for Spanish championships, youth events, circulars, and announcements."
+      ]
+    },
+    {
+      "slug": "europe-echecs",
+      "name": "Europe Echecs",
+      "url": "https://www.europe-echecs.com/actualites.html",
+      "region": "France",
+      "priorityGroup": 2,
+      "rank": 17,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Major French-language chess news source.",
+        "Flag paywall or image rights uncertainty when relevant."
+      ]
+    },
+    {
+      "slug": "deutscher-schachbund",
+      "name": "Deutscher Schachbund",
+      "url": "https://www.schachbund.de",
+      "region": "Germany",
+      "priorityGroup": 2,
+      "rank": 18,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official German federation source.",
+        "Useful for national teams, championships, and federation announcements."
+      ]
+    },
+    {
+      "slug": "chessbase-india",
+      "name": "ChessBase India",
+      "url": "https://www.chessbase.in",
+      "region": "India",
+      "priorityGroup": 2,
+      "rank": 19,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["rss_review", "manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Strong Indian chess media source for players, tournaments, interviews, training stories, and youth chess.",
+        "Avoid copying interview passages or long story sections."
+      ]
+    },
+    {
+      "slug": "all-india-chess-federation",
+      "name": "All India Chess Federation",
+      "url": "https://aicf.in",
+      "region": "India",
+      "priorityGroup": 2,
+      "rank": 20,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official Indian federation source for announcements, arbiters, ratings-related posts, and national events.",
+        "Use as primary source for federation notices."
+      ]
+    },
+    {
+      "slug": "chess-federation-of-canada",
+      "name": "Chess Federation of Canada",
+      "url": "https://www.chess.ca/en/",
+      "region": "Canada",
+      "priorityGroup": 2,
+      "rank": 21,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official Canadian chess federation source.",
+        "Useful for Canadian news, players, federation notices, and newsletters."
+      ]
+    },
+    {
+      "slug": "reuters-chess",
+      "name": "Reuters Chess",
+      "url": "https://www.reuters.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 22,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "High-authority mainstream source for major chess business, controversy, governance, and elite-event stories.",
+        "Often not chess-specific; verify story context before approval."
+      ]
+    },
+    {
+      "slug": "associated-press",
+      "name": "Associated Press",
+      "url": "https://apnews.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 23,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Useful for major international stories, obituaries, player profiles, and controversies.",
+        "Use canonical AP article URL when it is the original reporting source."
+      ]
+    },
+    {
+      "slug": "the-guardian-chess",
+      "name": "The Guardian Chess",
+      "url": "https://www.theguardian.com/sport/chess",
+      "region": "UK",
+      "priorityGroup": 3,
+      "rank": 24,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Good for UK chess coverage, columns, puzzles, and public chess events.",
+        "Classify columns as opinion and avoid reproducing puzzle or column text."
+      ]
+    },
+    {
+      "slug": "financial-times-chess",
+      "name": "Financial Times Chess",
+      "url": "https://www.ft.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 25,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Occasional high-quality chess columns and cultural or business coverage.",
+        "Often paywalled; do not republish restricted content."
+      ]
+    },
+    {
+      "slug": "google-news-search",
+      "name": "Google News Search",
+      "url": "https://news.google.com/search?q=chess",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 26,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only"],
+      "status": "planned",
+      "notes": [
+        "Discovery only.",
+        "Use to find stories, then verify and attribute the original publisher."
+      ]
+    },
+    {
+      "slug": "reddit-chess",
+      "name": "Reddit r/chess",
+      "url": "https://www.reddit.com/r/chess/",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 27,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only"],
+      "status": "planned",
+      "notes": [
+        "Community signal and early discovery only.",
+        "Always verify with original sources before approval."
+      ]
+    },
+    {
+      "slug": "x-official-accounts",
+      "name": "X / Twitter official accounts",
+      "url": "https://x.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 28,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only", "api_review"],
+      "status": "planned",
+      "notes": [
+        "Discovery only from official accounts for FIDE, platforms, federations, players, and organizers.",
+        "Prefer APIs or embeds and verify claims elsewhere before approval."
+      ]
+    },
+    {
+      "slug": "youtube-chess-channels",
+      "name": "YouTube chess channels",
+      "url": "https://www.youtube.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 29,
+      "phase": "phase-4",
+      "role": "discovery",
+      "accessModes": ["discovery_only"],
+      "status": "planned",
+      "notes": [
+        "Discovery for interviews, recaps, and player statements.",
+        "Do not scrape transcripts without checking rights."
+      ]
+    },
+    {
+      "slug": "chess24",
+      "name": "chess24",
+      "url": "https://chess24.com",
+      "region": "Global",
+      "priorityGroup": 4,
+      "rank": 30,
+      "phase": "avoid",
+      "role": "avoid_primary",
+      "accessModes": ["avoid_primary"],
+      "status": "avoid",
+      "notes": [
+        "Not an active primary source anymore.",
+        "Use Chess.com or archived chess24 content only when specifically relevant."
+      ]
+    },
+    {
+      "slug": "random-repost-blogs",
+      "name": "Random repost blogs",
+      "url": "https://example.invalid/random-repost-blogs",
+      "region": "Various",
+      "priorityGroup": 4,
+      "rank": 31,
+      "phase": "avoid",
+      "role": "avoid_primary",
+      "accessModes": ["avoid_primary"],
+      "status": "avoid",
+      "notes": [
+        "Often duplicate Chess.com, FIDE, ChessBase, or federation content without original reporting.",
+        "Do not use as primary source."
+      ]
+    },
+    {
+      "slug": "unmoderated-forums",
+      "name": "Forums without moderation",
+      "url": "https://example.invalid/unmoderated-forums",
+      "region": "Various",
+      "priorityGroup": 4,
+      "rank": 32,
+      "phase": "avoid",
+      "role": "avoid_primary",
+      "accessModes": ["avoid_primary"],
+      "status": "avoid",
+      "notes": [
+        "Useful for discovery in rare cases, but too noisy and unreliable for publication.",
+        "Require independent verification."
+      ]
+    },
+    {
+      "slug": "social-media-screenshots",
+      "name": "Social media screenshots",
+      "url": "https://example.invalid/social-media-screenshots",
+      "region": "Various",
+      "priorityGroup": 4,
+      "rank": 33,
+      "phase": "avoid",
+      "role": "avoid_primary",
+      "accessModes": ["avoid_primary"],
+      "status": "avoid",
+      "notes": [
+        "High risk of misinformation.",
+        "Verify with official source or original post before using any fact."
+      ]
+    }
+  ]
+}
+

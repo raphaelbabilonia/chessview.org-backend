@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Event = require("../models/Event");
+const NewsItem = require("../models/NewsItem");
 const Section = require("../models/Section");
 const Registration = require("../models/Registration");
 const Player = require("../models/Player");
@@ -15,6 +16,7 @@ const seedDatabase = async () => {
   await Promise.all([
     User.deleteMany({}),
     Event.deleteMany({}),
+    NewsItem.deleteMany({}),
     Section.deleteMany({}),
     Registration.deleteMany({}),
     Player.deleteMany({}),

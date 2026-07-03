@@ -1,0 +1,441 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-03",
+  "referenceDocument": "../Priority Sources for Chess Tournament Aggregator.md",
+  "automationPolicy": "agent_supervised_only",
+  "sources": [
+    {
+      "slug": "chess-results",
+      "name": "Chess-Results",
+      "url": "https://chess-results.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 1,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Important global source for results, pairings, and tournaments.",
+        "Use only lightweight metadata and source attribution."
+      ]
+    },
+    {
+      "slug": "fide-calendar",
+      "name": "FIDE Calendar",
+      "url": "https://calendar.fide.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 2,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official FIDE events calendar.",
+        "Prefer this for authoritative international event dates."
+      ]
+    },
+    {
+      "slug": "fide-rated-tournaments",
+      "name": "FIDE Rated Tournaments",
+      "url": "https://ratings.fide.com/rated_tournaments.phtml",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 3,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Rated tournaments by country.",
+        "Review source terms before repeated collection."
+      ]
+    },
+    {
+      "slug": "vesus",
+      "name": "Vesus",
+      "url": "https://vesus.org",
+      "region": "Italy",
+      "priorityGroup": 1,
+      "rank": 4,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Key Italian tournament source.",
+        "Do not copy source code, branding, private assets, credentials, or protected text."
+      ]
+    },
+    {
+      "slug": "federscacchi",
+      "name": "Federscacchi",
+      "url": "https://www.federscacchi.it",
+      "region": "Italy",
+      "priorityGroup": 1,
+      "rank": 5,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official Italian federation source.",
+        "Prefer official metadata and original links."
+      ]
+    },
+    {
+      "slug": "chessreg",
+      "name": "ChessReg",
+      "url": "https://chessreg.com",
+      "region": "USA / North America",
+      "priorityGroup": 1,
+      "rank": 6,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["api_review"],
+      "status": "planned",
+      "notes": [
+        "Good source where documented API access is available.",
+        "Use API terms and attribution if enabled later."
+      ]
+    },
+    {
+      "slug": "us-chess",
+      "name": "US Chess",
+      "url": "https://new.uschess.org/upcoming-tournaments",
+      "region": "USA",
+      "priorityGroup": 1,
+      "rank": 7,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official United States tournament calendar.",
+        "Use as primary US source when available."
+      ]
+    },
+    {
+      "slug": "lichess-broadcasts",
+      "name": "Lichess Broadcasts",
+      "url": "https://lichess.org/broadcast",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 8,
+      "phase": "phase-1",
+      "role": "primary",
+      "accessModes": ["api_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Useful for live tournaments and broadcasted events.",
+        "Treat broadcast presence as evidence, not as full tournament coverage."
+      ]
+    },
+    {
+      "slug": "chess-com-events",
+      "name": "Chess.com Events",
+      "url": "https://www.chess.com/events",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 9,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["api_review", "manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Useful for major and online events.",
+        "Flag online-only events clearly with rating and time-control uncertainty if needed."
+      ]
+    },
+    {
+      "slug": "tornelo",
+      "name": "Tornelo",
+      "url": "https://tornelo.com",
+      "region": "Global",
+      "priorityGroup": 1,
+      "rank": 10,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Modern platform for registrations, payments, and hybrid tournaments.",
+        "Partnership access is preferred before repeated automated review."
+      ]
+    },
+    {
+      "slug": "info64",
+      "name": "Info64",
+      "url": "https://info64.org",
+      "region": "Spain / Latin America",
+      "priorityGroup": 2,
+      "rank": 11,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Important for Spain and FIDE tournaments.",
+        "Use country and city normalization carefully."
+      ]
+    },
+    {
+      "slug": "chessarbiter",
+      "name": "ChessArbiter",
+      "url": "https://www.chessarbiter.com",
+      "region": "Poland / Europe",
+      "priorityGroup": 2,
+      "rank": 12,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Widely used in Poland.",
+        "Prefer event-level source URLs."
+      ]
+    },
+    {
+      "slug": "deutscher-schachbund",
+      "name": "Deutscher Schachbund",
+      "url": "https://www.schachbund.de",
+      "region": "Germany",
+      "priorityGroup": 2,
+      "rank": 13,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official German calendar.",
+        "Use original federation event pages when available."
+      ]
+    },
+    {
+      "slug": "ffe",
+      "name": "FFE",
+      "url": "https://www.echecs.asso.fr",
+      "region": "France",
+      "priorityGroup": 2,
+      "rank": 14,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "French federation source for calendar and rated tournaments.",
+        "Keep French location names as source shows them unless normalized separately."
+      ]
+    },
+    {
+      "slug": "ecf",
+      "name": "ECF",
+      "url": "https://www.englishchess.org.uk",
+      "region": "United Kingdom",
+      "priorityGroup": 2,
+      "rank": 15,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official English events source.",
+        "Preserve source URL and event page attribution."
+      ]
+    },
+    {
+      "slug": "knsb",
+      "name": "KNSB",
+      "url": "https://schaakbond.nl",
+      "region": "Netherlands",
+      "priorityGroup": 2,
+      "rank": 16,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Dutch federation source.",
+        "Cross-check with Schaakkalender when useful."
+      ]
+    },
+    {
+      "slug": "schaakkalender",
+      "name": "Schaakkalender",
+      "url": "https://www.schaakkalender.nl",
+      "region": "Netherlands",
+      "priorityGroup": 2,
+      "rank": 17,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Strong local Dutch calendar.",
+        "Use as a local source and dedupe against KNSB."
+      ]
+    },
+    {
+      "slug": "aicf",
+      "name": "AICF",
+      "url": "https://aicf.in",
+      "region": "India",
+      "priorityGroup": 2,
+      "rank": 18,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Official Indian chess source.",
+        "Review event details carefully before approval."
+      ]
+    },
+    {
+      "slug": "circlechess",
+      "name": "CircleChess",
+      "url": "https://circlechess.com",
+      "region": "India",
+      "priorityGroup": 2,
+      "rank": 19,
+      "phase": "phase-2",
+      "role": "primary",
+      "accessModes": ["manual_web_review", "partnership_preferred"],
+      "status": "planned",
+      "notes": [
+        "Modern platform for registrations and tournaments.",
+        "Prefer partnership/API clarity before repeated automated review."
+      ]
+    },
+    {
+      "slug": "canadian-chess-federation",
+      "name": "Canadian Chess Federation",
+      "url": "https://www.chess.ca",
+      "region": "Canada",
+      "priorityGroup": 2,
+      "rank": 20,
+      "phase": "phase-3",
+      "role": "primary",
+      "accessModes": ["manual_web_review"],
+      "status": "planned",
+      "notes": [
+        "Canadian tournament calendar source.",
+        "Use official pages for attribution."
+      ]
+    },
+    {
+      "slug": "chess-calendar-eu",
+      "name": "Chess Calendar EU",
+      "url": "https://chess-calendar.eu",
+      "region": "Europe",
+      "priorityGroup": 3,
+      "rank": 21,
+      "phase": "benchmark",
+      "role": "benchmark",
+      "accessModes": ["benchmark_review"],
+      "status": "planned",
+      "notes": [
+        "Benchmark for coverage, UX, and SEO.",
+        "Use for discovery only; prefer original sources for approved data."
+      ]
+    },
+    {
+      "slug": "chess-mix",
+      "name": "Chess Mix",
+      "url": "https://www.chessmix.com/chess-tournaments",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 22,
+      "phase": "benchmark",
+      "role": "benchmark",
+      "accessModes": ["benchmark_review"],
+      "status": "planned",
+      "notes": [
+        "Global calendar benchmark.",
+        "Use for coverage comparison, not as final attribution when originals exist."
+      ]
+    },
+    {
+      "slug": "mychess-events",
+      "name": "MyChess.events",
+      "url": "https://mychess.events",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 23,
+      "phase": "benchmark",
+      "role": "benchmark",
+      "accessModes": ["benchmark_review"],
+      "status": "planned",
+      "notes": [
+        "Modern benchmark for over-the-board tournament UX.",
+        "Use for product comparison and source discovery."
+      ]
+    },
+    {
+      "slug": "chessaround",
+      "name": "Chessaround",
+      "url": "https://chessaround.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 24,
+      "phase": "benchmark",
+      "role": "benchmark",
+      "accessModes": ["benchmark_review"],
+      "status": "planned",
+      "notes": [
+        "Discovery benchmark.",
+        "Trace tournament facts back to original source before approval."
+      ]
+    },
+    {
+      "slug": "chessdom-calendar",
+      "name": "Chessdom Calendar",
+      "url": "https://calendar.chessdom.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 25,
+      "phase": "benchmark",
+      "role": "benchmark",
+      "accessModes": ["benchmark_review"],
+      "status": "planned",
+      "notes": [
+        "Editorial benchmark.",
+        "Do not copy article text; use only for lead discovery."
+      ]
+    },
+    {
+      "slug": "world-chess-calendar",
+      "name": "World Chess Calendar",
+      "url": "https://worldchesscalendar.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 26,
+      "phase": "benchmark",
+      "role": "benchmark",
+      "accessModes": ["benchmark_review"],
+      "status": "planned",
+      "notes": [
+        "Country-based SEO benchmark.",
+        "Use for coverage gaps and original-source discovery."
+      ]
+    },
+    {
+      "slug": "chessprime-calendar",
+      "name": "ChessPrime Calendar",
+      "url": "https://chessprime.com",
+      "region": "Global",
+      "priorityGroup": 3,
+      "rank": 27,
+      "phase": "benchmark",
+      "role": "benchmark",
+      "accessModes": ["benchmark_review"],
+      "status": "planned",
+      "notes": [
+        "Long-tail country-based benchmark.",
+        "Benchmark only unless an original source cannot be found."
+      ]
+    }
+  ]
+}
+
