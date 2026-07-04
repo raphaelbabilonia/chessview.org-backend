@@ -140,12 +140,12 @@ Use the local news automation to collect source-first article cards from RSS/Ato
 
 ```bash
 npm run agent:discover-news
-npm run agent:publish -- --domain news
+npm run agent:publish -- --domain news --publish
 ```
 
 `agent:discover-news` reads `Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under the ignored `Codex News/` workspace, and requires publisher images. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, or `--candidates-only` for review-only output.
 
-News articles require an absolute publisher image URL. Discovery, local publishing gates, API ingest, and public news queries all reject or hide records without images. To remove older rows created before this rule, run a dry check first:
+News articles require an absolute publisher image URL. Discovery, local publishing gates, API ingest, and public news queries all reject or hide records without images. The publish step also attempts to repair missing image fields from source-page metadata before rejecting a record. To remove older rows created before this rule, run a dry check first:
 
 ```bash
 npm run news:prune-missing-images

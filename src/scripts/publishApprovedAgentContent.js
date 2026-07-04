@@ -16,6 +16,9 @@ const TIME_CONTROL_PRIORITY = {
   blitz: 1,
   bullet: 1
 };
+const MAX_AGENT_INGEST_BATCH_BYTES = Number(process.env.CHESSVIEW_AGENT_INGEST_MAX_BATCH_BYTES || 750000);
+const IMAGE_REPAIR_TIMEOUT_MS = Number(process.env.CHESSVIEW_NEWS_IMAGE_REPAIR_TIMEOUT_MS || 12000);
+const USER_AGENT = "ChessViewNewsBridge/0.1 (+https://chessview.org; image metadata repair)";
 
 const parseArgs = (argv) => {
   const args = {
@@ -91,6 +94,94 @@ const originFromUrl = (value) => {
   }
 };
 
+const decodeEntities = (value = "") => {
+  const named = {
+    amp: "&",
+    apos: "'",
+    gt: ">",
+    lt: "<",
+    quot: '"'
+  };
+
+  return String(value)
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&([a-z]+);/gi, (match, name) => named[name.toLowerCase()] || match);
+};
+
+const absoluteUrl = (value, baseUrl) => {
+  try {
+    return new URL(decodeEntities(value), baseUrl).toString();
+  } catch {
+    return "";
+  }
+};
+
+const attrsFromTag = (tag = "") => {
+  const attrs = {};
+  const attrPattern = /([:@a-zA-Z0-9_-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+  let match = attrPattern.exec(tag);
+  while (match) {
+    attrs[match[1].toLowerCase()] = decodeEntities(match[3] || match[4] || match[5] || "").trim();
+    match = attrPattern.exec(tag);
+  }
+  return attrs;
+};
+
+const extractImageFromHtml = (html, baseUrl) => {
+  const imageMetaNames = new Set([
+    "og:image",
+    "og:image:url",
+    "og:image:secure_url",
+    "twitter:image",
+    "twitter:image:src",
+    "thumbnail",
+    "image"
+  ]);
+
+  for (const match of String(html || "").matchAll(/<meta\b[^>]*>/gi)) {
+    const attrs = attrsFromTag(match[0]);
+    const key = (attrs.property || attrs.name || attrs.itemprop || "").toLowerCase();
+    const value = attrs.content || "";
+    if (imageMetaNames.has(key)) {
+      const imageUrl = absoluteUrl(value, baseUrl);
+      if (hasRequiredNewsImage(imageUrl)) return imageUrl;
+    }
+  }
+
+  for (const match of String(html || "").matchAll(/<link\b[^>]*>/gi)) {
+    const attrs = attrsFromTag(match[0]);
+    const rel = String(attrs.rel || "").toLowerCase();
+    const imageUrl = absoluteUrl(attrs.href || "", baseUrl);
+    if ((rel.includes("image_src") || rel.includes("preload")) && hasRequiredNewsImage(imageUrl)) return imageUrl;
+  }
+
+  return "";
+};
+
+const fetchArticleImage = async (url) => {
+  if (!url) return "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), IMAGE_REPAIR_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": USER_AGENT
+      },
+      redirect: "follow",
+      signal: controller.signal
+    });
+    if (!response.ok || !/html/i.test(response.headers.get("content-type") || "")) return "";
+    const html = await response.text();
+    return extractImageFromHtml(html, response.url || url);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const titleFamily = (title) =>
   normalizeText(title)
     .split(" ")
@@ -163,33 +254,98 @@ const gateTournamentFamilies = (items) => {
   return { accepted, rejected };
 };
 
-const publishBatch = async ({ endpoint, token, dryRun, runId, items }) => {
-  if (items.length === 0) {
-    return {
-      success: true,
-      dryRun,
-      created: [],
-      updated: [],
-      skipped: [],
-      rejected: [],
-      errors: [],
-      meta: { created: 0, updated: 0, skipped: 0, rejected: 0, errors: 0 }
-    };
+const emptyPublishResult = (dryRun) => ({
+  success: true,
+  dryRun,
+  created: [],
+  updated: [],
+  skipped: [],
+  rejected: [],
+  errors: [],
+  meta: { created: 0, updated: 0, skipped: 0, rejected: 0, errors: 0 }
+});
+
+const requestSizeBytes = ({ dryRun, runId, items }) =>
+  Buffer.byteLength(JSON.stringify({ dryRun, runId, items }));
+
+const splitIntoRequestBatches = ({ dryRun, runId, items }) => {
+  const batches = [];
+  let current = [];
+
+  for (const item of items) {
+    const candidate = current.concat(item);
+    if (current.length > 0 && requestSizeBytes({ dryRun, runId, items: candidate.map((entry) => entry.data) }) > MAX_AGENT_INGEST_BATCH_BYTES) {
+      batches.push(current);
+      current = [item];
+      continue;
+    }
+
+    current = candidate;
   }
 
+  if (current.length > 0) batches.push(current);
+  return batches;
+};
+
+const combinePublishResults = (dryRun, results) => {
+  const combined = emptyPublishResult(dryRun);
+  for (const result of results) {
+    for (const key of ["created", "updated", "skipped", "rejected", "errors"]) {
+      combined[key].push(...(result[key] || []));
+    }
+  }
+  combined.success = combined.errors.length === 0;
+  combined.meta = {
+    created: combined.created.length,
+    updated: combined.updated.length,
+    skipped: combined.skipped.length,
+    rejected: combined.rejected.length,
+    errors: combined.errors.length
+  };
+  return combined;
+};
+
+const publishRequest = async ({ endpoint, token, dryRun, runId, items }) => {
   const response = await fetch(`${apiRoot()}${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Agent-Publish-Token": token
     },
-    body: JSON.stringify({ dryRun, runId, items: items.map((item) => item.data) })
+    body: JSON.stringify({ dryRun, runId, items })
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(`${endpoint} failed with ${response.status}: ${body.message || response.statusText}`);
   }
   return body;
+};
+
+const publishBatch = async ({ endpoint, token, dryRun, runId, items }) => {
+  if (items.length === 0) return emptyPublishResult(dryRun);
+
+  const batches = splitIntoRequestBatches({ dryRun, runId, items });
+  if (batches.length > 1) {
+    console.log(
+      `Splitting ${endpoint} ingest into ${batches.length} batches; max request bytes=${MAX_AGENT_INGEST_BATCH_BYTES}`
+    );
+  }
+
+  const results = [];
+  for (let index = 0; index < batches.length; index += 1) {
+    const batch = batches[index];
+    results.push(
+      await publishRequest({
+        endpoint,
+        token,
+        dryRun,
+        runId: batches.length > 1 ? `${runId}-batch-${index + 1}` : runId,
+        items: batch.map((item) => item.data)
+      })
+    );
+  }
+
+  return combinePublishResults(dryRun, results);
 };
 
 const summarize = (label, result) => {
@@ -217,14 +373,34 @@ const summarizeLocalRejected = (label, rejected) => {
   }
 };
 
-const gateNewsImages = (items) => {
+const gateNewsImages = async (items) => {
   const accepted = [];
   const rejected = [];
+  const repaired = [];
+  const imageCache = new Map();
 
   for (const item of items) {
     if (hasRequiredNewsImage(item.data?.imageUrl)) {
       accepted.push(item);
       continue;
+    }
+
+    const articleUrl = item.data?.canonicalUrl || item.data?.sourceUrl || item.data?.url || "";
+    if (articleUrl) {
+      if (!imageCache.has(articleUrl)) imageCache.set(articleUrl, await fetchArticleImage(articleUrl));
+      const repairedImageUrl = imageCache.get(articleUrl);
+      if (hasRequiredNewsImage(repairedImageUrl)) {
+        accepted.push({
+          ...item,
+          data: {
+            ...item.data,
+            imageUrl: repairedImageUrl,
+            sourceLastCheckedAt: new Date().toISOString()
+          }
+        });
+        repaired.push({ title: item.data?.title || item.file, file: item.file, imageUrl: repairedImageUrl });
+        continue;
+      }
     }
 
     rejected.push({
@@ -235,7 +411,7 @@ const gateNewsImages = (items) => {
     });
   }
 
-  return { accepted, rejected };
+  return { accepted, rejected, repaired };
 };
 
 const main = async () => {
@@ -251,7 +427,7 @@ const main = async () => {
   const tournamentGate = gateTournamentFamilies(tournamentFiles);
   const tournaments = tournamentGate.accepted;
   const newsFiles = shouldPublishNews ? readApprovedItems("Codex News/approved") : [];
-  const newsGate = gateNewsImages(newsFiles);
+  const newsGate = await gateNewsImages(newsFiles);
   const news = newsGate.accepted;
 
   console.log(`ChessView agent publisher (${args.dryRun ? "dry-run" : "publish"})`);
@@ -260,6 +436,7 @@ const main = async () => {
   );
   summarizeLocalRejected("tournaments", tournamentGate.rejected);
   summarizeLocalRejected("news", newsGate.rejected);
+  if (newsGate.repaired.length) console.log(`news: repaired_images=${newsGate.repaired.length}`);
 
   const results = [];
   if (shouldPublishTournaments) {
