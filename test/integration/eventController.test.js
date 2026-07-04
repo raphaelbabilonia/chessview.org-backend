@@ -38,6 +38,33 @@ describe("eventController", () => {
       assert.ok("sectionsCount" in res.body.data[0], "list carries denormalized counts");
     });
 
+    it("keeps event lists light while exposing metadata summaries", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        {
+          startDate: daysFromNow(5),
+          endDate: daysFromNow(6),
+          status: "published",
+          isPublic: true,
+          metadata: {
+            enrichmentStatus: "complete",
+            registration: { fee: 30, currency: "EUR" },
+            schedule: [{ label: "Round 1", date: "2026-09-01" }],
+            historicalEditions: [{ year: 2025, playerCount: 64 }]
+          }
+        }
+      );
+
+      const res = await client.request("/api/events");
+      assert.equal(res.status, 200);
+      const event = res.body.data.find((item) => item.slug === "chess-view-open-cuneo");
+      assert.equal("metadata" in event, false, "list omits full metadata payload");
+      assert.equal(event.metadataSummary.enrichmentStatus, "complete");
+      assert.equal(event.metadataSummary.hasRegistration, true);
+      assert.equal(event.metadataSummary.hasSchedule, true);
+      assert.equal(event.metadataSummary.hasHistoricalData, true);
+    });
+
     it("can include past public events when explicitly requested", async () => {
       await Event.updateOne(
         { slug: "sunday-family-chess-festival" },
@@ -94,6 +121,24 @@ describe("eventController", () => {
       assert.ok(Array.isArray(ev.sections) && ev.sections.length === 2);
       assert.ok(Array.isArray(ev.players) && ev.players.length === 2);
       assert.ok(Array.isArray(ev.standings), "standings computed");
+    });
+
+    it("exposes full tournament metadata on the event detail endpoint", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        {
+          metadata: {
+            enrichmentStatus: "complete",
+            playerField: { expectedPlayers: 90 },
+            historicalEditions: [{ year: 2025, winner: "Previous Winner" }]
+          }
+        }
+      );
+
+      const res = await client.request("/api/events/chess-view-open-cuneo");
+      assert.equal(res.status, 200);
+      assert.equal(res.body.data.metadata.playerField.expectedPlayers, 90);
+      assert.equal(res.body.data.metadata.historicalEditions[0].winner, "Previous Winner");
     });
 
     it("resolves the same event by id", async () => {

@@ -41,7 +41,66 @@ const publicPlayer = (player) => {
   };
 };
 
+const isPlainObject = (value) =>
+  value && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+
+const hasObjectData = (value) => isPlainObject(value) && Object.keys(value).length > 0;
+
+const hasArrayData = (value) => Array.isArray(value) && value.length > 0;
+
+const metadataSummaryFor = (metadata = {}) => {
+  if (!hasObjectData(metadata)) {
+    return {
+      enrichmentStatus: "none",
+      factsCount: 0,
+      hasRegistration: false,
+      hasSchedule: false,
+      hasPrizes: false,
+      hasPlayerField: false,
+      hasHistoricalData: false,
+      sourcesCount: 0
+    };
+  }
+
+  const sourcesVisited = metadata.sourceAudit?.sourcesVisited;
+  const factsCount = [
+    hasObjectData(metadata.format),
+    hasObjectData(metadata.registration),
+    hasObjectData(metadata.logistics),
+    hasArrayData(metadata.schedule),
+    hasObjectData(metadata.prizes),
+    hasObjectData(metadata.playerField),
+    hasArrayData(metadata.historicalEditions),
+    hasArrayData(metadata.extraFacts)
+  ].filter(Boolean).length;
+
+  return {
+    enrichmentStatus: metadata.enrichmentStatus || "partial",
+    factsCount,
+    hasRegistration: hasObjectData(metadata.registration),
+    hasSchedule: hasArrayData(metadata.schedule),
+    hasPrizes: hasObjectData(metadata.prizes),
+    hasPlayerField: hasObjectData(metadata.playerField),
+    hasHistoricalData: hasArrayData(metadata.historicalEditions),
+    sourcesCount: hasArrayData(sourcesVisited) ? sourcesVisited.length : 0,
+    lastEnrichedAt: metadata.sourceAudit?.extractedAt || metadata.lastEnrichedAt || null
+  };
+};
+
+const eventListItem = (event) => {
+  const value = toPlain(event);
+  if (!value) return null;
+  const metadataSummary = metadataSummaryFor(value.metadata);
+  const { metadata, ...rest } = value;
+  return {
+    ...rest,
+    metadataSummary
+  };
+};
+
 module.exports = {
+  eventListItem,
+  metadataSummaryFor,
   publicOrganizer,
   publicPlayer
 };

@@ -5,6 +5,16 @@ const fs = require("fs");
 const path = require("path");
 
 const rootDir = path.resolve(__dirname, "../..");
+const TIME_CONTROL_TITLE_WORDS = new Set(["rapid", "blitz", "classical", "standard", "bullet"]);
+const TIME_CONTROL_PRIORITY = {
+  mixed: 5,
+  standard: 4,
+  classical: 4,
+  rapid: 3,
+  unknown: 2,
+  blitz: 1,
+  bullet: 1
+};
 
 const parseArgs = (argv) => {
   const args = {
@@ -37,7 +47,7 @@ const listJsonFiles = (directory) => {
     const fullPath = path.join(directory, entry.name);
     if (entry.isDirectory()) return listJsonFiles(fullPath);
     return entry.isFile() && entry.name.endsWith(".json") ? [fullPath] : [];
-  });
+  }).sort();
 };
 
 const readApprovedItems = (relativeDirectory) => {
@@ -52,6 +62,104 @@ const apiRoot = () => {
   const base = process.env.CHESSVIEW_API_BASE_URL;
   if (!base) throw new Error("Missing CHESSVIEW_API_BASE_URL");
   return base.replace(/\/+$/, "");
+};
+
+const normalizeText = (value) =>
+  String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const datePart = (value) => {
+  if (!value) return "";
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? text.slice(0, 10) : date.toISOString().slice(0, 10);
+};
+
+const originFromUrl = (value) => {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "";
+  }
+};
+
+const titleFamily = (title) =>
+  normalizeText(title)
+    .split(" ")
+    .filter((word) => !TIME_CONTROL_TITLE_WORDS.has(word))
+    .join(" ");
+
+const tournamentFamilyKey = (item) => {
+  const officialSite = originFromUrl(item.websiteUrl || item.registrationUrl || item.sourceUrl);
+  return [
+    normalizeText(item.country),
+    normalizeText(item.city),
+    datePart(item.startDate),
+    datePart(item.endDate || item.startDate),
+    normalizeText(item.venue),
+    officialSite,
+    titleFamily(item.title)
+  ].join("|");
+};
+
+const tournamentPriority = (item) => {
+  const timeControl = normalizeText(item.timeControl);
+  return TIME_CONTROL_PRIORITY[timeControl] || 0;
+};
+
+const gateTournamentFamilies = (items) => {
+  const accepted = [];
+  const rejected = [];
+  const seen = new Map();
+
+  for (const item of items) {
+    const key = tournamentFamilyKey(item.data);
+    if (!key || key.split("|").every((part) => !part)) {
+      accepted.push(item);
+      continue;
+    }
+
+    const previous = seen.get(key);
+    if (previous) {
+      if (tournamentPriority(item.data) > tournamentPriority(previous.data)) {
+        accepted.splice(accepted.indexOf(previous), 1, item);
+        seen.set(key, item);
+        rejected.push({
+          title: previous.data.title || previous.file,
+          dedupeKey: previous.data.dedupeKey || "",
+          file: previous.file,
+          reasons: [
+            `same tournament family as ${item.file}`,
+            "lower-priority companion event held back before publishing"
+          ]
+        });
+        continue;
+      }
+
+      rejected.push({
+        title: item.data.title || item.file,
+        dedupeKey: item.data.dedupeKey || "",
+        file: item.file,
+        reasons: [
+          `same tournament family as ${previous.file}`,
+          "rapid/blitz/classical companion events should be merged or linked before publishing"
+        ]
+      });
+      continue;
+    }
+
+    seen.set(key, item);
+    accepted.push(item);
+  }
+
+  return { accepted, rejected };
 };
 
 const publishBatch = async ({ endpoint, token, dryRun, runId, items }) => {
@@ -100,6 +208,14 @@ const summarize = (label, result) => {
   }
 };
 
+const summarizeLocalRejected = (label, rejected) => {
+  if (!rejected.length) return;
+  console.log(`${label}: locally_rejected=${rejected.length}`);
+  for (const item of rejected) {
+    console.log(`  rejected: ${item.title || item.dedupeKey || "item"} - ${(item.reasons || []).join("; ")}`);
+  }
+};
+
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
   const token = process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN;
@@ -109,11 +225,16 @@ const main = async () => {
   const shouldPublishTournaments = args.domain === "all" || args.domain === "tournaments";
   const shouldPublishNews = args.domain === "all" || args.domain === "news";
 
-  const tournaments = shouldPublishTournaments ? readApprovedItems("Codex Tournaments/approved") : [];
+  const tournamentFiles = shouldPublishTournaments ? readApprovedItems("Codex Tournaments/approved") : [];
+  const tournamentGate = gateTournamentFamilies(tournamentFiles);
+  const tournaments = tournamentGate.accepted;
   const news = shouldPublishNews ? readApprovedItems("Codex News/approved") : [];
 
   console.log(`ChessView agent publisher (${args.dryRun ? "dry-run" : "publish"})`);
-  console.log(`Loaded approved JSON: tournaments=${tournaments.length} news=${news.length}`);
+  console.log(
+    `Loaded approved JSON: tournaments=${tournamentFiles.length} news=${news.length}; publishable after local gates: tournaments=${tournaments.length}`
+  );
+  summarizeLocalRejected("tournaments", tournamentGate.rejected);
 
   const results = [];
   if (shouldPublishTournaments) {

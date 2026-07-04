@@ -18,6 +18,7 @@ const fields = {
   contactEmail: z.union([z.string().email(), z.literal("")]).optional(),
   websiteUrl: z.string().optional(),
   regulationsUrl: z.string().optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
   isPublic: z.boolean().optional()
 };
 

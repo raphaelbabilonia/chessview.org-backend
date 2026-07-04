@@ -8,7 +8,7 @@ const Registration = require("../models/Registration");
 const EventDocument = require("../models/EventDocument");
 const calculateStandings = require("../utils/calculateStandings");
 const { canManageEvent, canViewEvent, publicEventStatuses } = require("../utils/permissions");
-const { publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
+const { eventListItem, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
 const slugify = require("../utils/slugify");
 
 const MAX_PUBLIC_LIMIT = 100;
@@ -158,7 +158,7 @@ const listEvents = async (req, res) => {
   ]);
   const data = await Promise.all(
     events.map(async (event) => ({
-      ...event,
+      ...eventListItem(event),
       sectionsCount: await Section.countDocuments({ event: event._id }),
       playersCount: await Player.countDocuments({ event: event._id }),
       roundsCount: await Round.countDocuments({ event: event._id })

@@ -21,6 +21,44 @@ const tournamentItem = {
   websiteUrl: "https://example.org/tournaments/agent-test-open",
   registrationUrl: "https://example.org/tournaments/agent-test-open/register",
   resultsUrl: "https://example.org/tournaments/agent-test-open/results",
+  metadata: {
+    enrichmentStatus: "complete",
+    format: {
+      system: "Swiss",
+      rounds: 7,
+      timeControls: ["90+30"],
+      fideRated: true
+    },
+    registration: {
+      status: "open",
+      deadline: "2026-10-01",
+      fee: 50,
+      currency: "EUR"
+    },
+    playerField: {
+      expectedPlayers: 80,
+      minRating: 1200,
+      maxRating: 2400
+    },
+    historicalEditions: [
+      {
+        year: 2025,
+        playerCount: 72,
+        winner: "Agent Winner",
+        sourceUrl: "https://example.org/tournaments/agent-test-open-2025/results"
+      }
+    ],
+    sourceAudit: {
+      extractedAt: "2026-07-03T16:00:00.000Z",
+      sourcesVisited: [
+        {
+          name: "Agent Source",
+          url: "https://example.org/tournaments/agent-test-open",
+          status: "used"
+        }
+      ]
+    }
+  },
   originalId: "agent-test-open-2026",
   confidence: 0.91,
   qualityFlags: [],
@@ -135,6 +173,9 @@ describe("agentIngestController", () => {
     assert.equal(created.source.name, "Agent Source");
     assert.equal(created.country, "Italy");
     assert.equal(created.resultsUrl, tournamentItem.resultsUrl);
+    assert.equal(created.metadata.enrichmentStatus, "complete");
+    assert.equal(created.metadata.format.rounds, 7);
+    assert.equal(created.metadata.historicalEditions[0].playerCount, 72);
     assert.ok(created.externalLinks.some((link) => link.type === "registration"));
 
     const second = await postIngest(client, "/api/agent-ingest/tournaments", {
@@ -191,4 +232,3 @@ describe("agentIngestController", () => {
     assert.equal(await NewsItem.countDocuments({ dedupeKey: "blocked-news" }), 0);
   });
 });
-

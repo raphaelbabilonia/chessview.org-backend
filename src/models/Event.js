@@ -67,6 +67,10 @@ const eventSchema = new mongoose.Schema(
       ],
       default: []
     },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     dataQualityScore: { type: Number, default: 0 },
     isPublic: { type: Boolean, default: false }
   },

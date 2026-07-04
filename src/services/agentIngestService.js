@@ -24,6 +24,9 @@ const NEWS_BLOCKING_FLAGS = new Set([
 ]);
 
 const allowedEventRatingTypes = new Set(["FIDE", "national", "unrated"]);
+const MAX_METADATA_DEPTH = 6;
+const MAX_METADATA_ARRAY_LENGTH = 120;
+const MAX_METADATA_STRING_LENGTH = 2500;
 
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
 
@@ -42,6 +45,51 @@ const originFromUrl = (value) => {
 };
 
 const firstString = (...values) => values.find((value) => typeof value === "string" && value.trim());
+
+const isPlainObject = (value) =>
+  value && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+
+const sanitizeMetadataValue = (value, depth = 0) => {
+  if (depth > MAX_METADATA_DEPTH) return undefined;
+  if (value === null || typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "string") return value.trim().slice(0, MAX_METADATA_STRING_LENGTH);
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, MAX_METADATA_ARRAY_LENGTH)
+      .map((item) => sanitizeMetadataValue(item, depth + 1))
+      .filter((item) => item !== undefined && item !== "");
+  }
+  if (!isPlainObject(value)) return undefined;
+
+  return Object.entries(value).reduce((result, [key, entryValue]) => {
+    if (!key || key.startsWith("$") || key.includes(".")) return result;
+    const cleanValue = sanitizeMetadataValue(entryValue, depth + 1);
+    if (cleanValue === undefined || cleanValue === "") return result;
+    if (Array.isArray(cleanValue) && cleanValue.length === 0) return result;
+    if (isPlainObject(cleanValue) && Object.keys(cleanValue).length === 0) return result;
+    result[key] = cleanValue;
+    return result;
+  }, {});
+};
+
+const normalizeTournamentMetadata = (item) => {
+  const metadata = sanitizeMetadataValue(item.metadata || {});
+  if (!isPlainObject(metadata) || Object.keys(metadata).length === 0) return {};
+
+  return {
+    enrichmentStatus: metadata.enrichmentStatus || "partial",
+    summary: metadata.summary || "",
+    format: isPlainObject(metadata.format) ? metadata.format : {},
+    registration: isPlainObject(metadata.registration) ? metadata.registration : {},
+    logistics: isPlainObject(metadata.logistics) ? metadata.logistics : {},
+    schedule: Array.isArray(metadata.schedule) ? metadata.schedule : [],
+    prizes: isPlainObject(metadata.prizes) ? metadata.prizes : {},
+    playerField: isPlainObject(metadata.playerField) ? metadata.playerField : {},
+    historicalEditions: Array.isArray(metadata.historicalEditions) ? metadata.historicalEditions : [],
+    sourceAudit: isPlainObject(metadata.sourceAudit) ? metadata.sourceAudit : {},
+    extraFacts: Array.isArray(metadata.extraFacts) ? metadata.extraFacts : []
+  };
+};
 
 const uniqueLinks = (links) => {
   const seen = new Set();
@@ -136,6 +184,7 @@ const newsQuery = (item) => {
 const mapTournament = async (item, organizer, existing = null) => {
   const startDate = asDate(item.startDate);
   const endDate = asDate(item.endDate, startDate);
+  const metadata = normalizeTournamentMetadata(item);
   const externalLinks = uniqueLinks([
     item.websiteUrl && { label: "Website", type: "website", url: item.websiteUrl, sourceName: item.sourceName },
     item.registrationUrl && { label: "Registration", type: "registration", url: item.registrationUrl, sourceName: item.sourceName },
@@ -178,6 +227,7 @@ const mapTournament = async (item, organizer, existing = null) => {
       detailStatus: normalizeArray(item.qualityFlags).length ? "partial" : "complete"
     },
     externalLinks,
+    metadata: Object.keys(metadata).length ? metadata : existing?.metadata || {},
     dataQualityScore: Math.round((item.confidence || 0) * 100),
     isPublic: true
   };
