@@ -20,7 +20,8 @@
     "tracking:audit": "node src/scripts/auditTrackingCoverage.js",
     "tracking:rollup": "node src/scripts/rollupTrackingAnalytics.js",
     "agent:discover-news": "node src/scripts/discoverNewsFeeds.js",
-    "agent:publish": "node src/scripts/publishApprovedAgentContent.js"
+    "agent:publish": "node src/scripts/publishApprovedAgentContent.js",
+    "news:prune-missing-images": "node src/scripts/pruneNewsWithoutImages.js"
   },
   "dependencies": {
     "bcryptjs": "^3",

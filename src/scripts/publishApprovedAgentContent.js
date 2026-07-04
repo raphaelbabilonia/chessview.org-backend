@@ -3,6 +3,7 @@ require("dotenv").config({ quiet: true });
 
 const fs = require("fs");
 const path = require("path");
+const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 
 const rootDir = path.resolve(__dirname, "../..");
 const TIME_CONTROL_TITLE_WORDS = new Set(["rapid", "blitz", "classical", "standard", "bullet"]);
@@ -216,6 +217,27 @@ const summarizeLocalRejected = (label, rejected) => {
   }
 };
 
+const gateNewsImages = (items) => {
+  const accepted = [];
+  const rejected = [];
+
+  for (const item of items) {
+    if (hasRequiredNewsImage(item.data?.imageUrl)) {
+      accepted.push(item);
+      continue;
+    }
+
+    rejected.push({
+      title: item.data?.title || item.file,
+      dedupeKey: item.data?.dedupeKey || "",
+      file: item.file,
+      reasons: [REQUIRED_NEWS_IMAGE_REASON]
+    });
+  }
+
+  return { accepted, rejected };
+};
+
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
   const token = process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN;
@@ -228,13 +250,16 @@ const main = async () => {
   const tournamentFiles = shouldPublishTournaments ? readApprovedItems("Codex Tournaments/approved") : [];
   const tournamentGate = gateTournamentFamilies(tournamentFiles);
   const tournaments = tournamentGate.accepted;
-  const news = shouldPublishNews ? readApprovedItems("Codex News/approved") : [];
+  const newsFiles = shouldPublishNews ? readApprovedItems("Codex News/approved") : [];
+  const newsGate = gateNewsImages(newsFiles);
+  const news = newsGate.accepted;
 
   console.log(`ChessView agent publisher (${args.dryRun ? "dry-run" : "publish"})`);
   console.log(
-    `Loaded approved JSON: tournaments=${tournamentFiles.length} news=${news.length}; publishable after local gates: tournaments=${tournaments.length}`
+    `Loaded approved JSON: tournaments=${tournamentFiles.length} news=${newsFiles.length}; publishable after local gates: tournaments=${tournaments.length} news=${news.length}`
   );
   summarizeLocalRejected("tournaments", tournamentGate.rejected);
+  summarizeLocalRejected("news", newsGate.rejected);
 
   const results = [];
   if (shouldPublishTournaments) {

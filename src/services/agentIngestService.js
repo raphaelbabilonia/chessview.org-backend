@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const Event = require("../models/Event");
 const NewsItem = require("../models/NewsItem");
 const User = require("../models/User");
+const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const slugify = require("../utils/slugify");
 
 const TOURNAMENT_CONFIDENCE_MIN = 0.75;
@@ -420,6 +421,7 @@ const ingestNews = async ({ items, dryRun = false }) => {
       const reasons = ensureReady(normalized, { minConfidence: NEWS_CONFIDENCE_MIN, blockingFlags: NEWS_BLOCKING_FLAGS });
       const query = newsQuery(normalized);
       if (!query) reasons.push("missing dedupe key, canonical URL, source URL, original id, and content hash");
+      if (!hasRequiredNewsImage(normalized.imageUrl)) reasons.push(REQUIRED_NEWS_IMAGE_REASON);
       if (!normalized.title || !normalized.summary || !normalized.sourceName || !normalized.sourceUrl || !normalized.canonicalUrl) {
         reasons.push("missing required news fields");
       }

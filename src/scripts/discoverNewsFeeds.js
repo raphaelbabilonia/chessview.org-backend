@@ -4,6 +4,7 @@ require("dotenv").config({ quiet: true });
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const slugify = require("../utils/slugify");
 
 const rootDir = path.resolve(__dirname, "../..");
@@ -43,7 +44,6 @@ const feedHintsBySlug = {
 
 const parseArgs = (argv) => {
   const args = {
-    allowMissingImage: false,
     approve: true,
     dryRun: false,
     maxSourceItems: DEFAULT_MAX_SOURCE_ITEMS,
@@ -62,7 +62,7 @@ const parseArgs = (argv) => {
       return next;
     };
 
-    if (arg === "--allow-missing-image") args.allowMissingImage = true;
+    if (arg === "--allow-missing-image") throw new Error("--allow-missing-image is disabled: news articles require publisher images");
     else if (arg === "--candidates-only") args.approve = false;
     else if (arg === "--approve") args.approve = true;
     else if (arg === "--dry-run") args.dryRun = true;
@@ -596,7 +596,7 @@ const rememberFingerprint = (item, fingerprints) => {
 const validateCandidate = (item, args, fingerprints) => {
   if (!item.title || !item.sourceUrl || !item.canonicalUrl) return "missing title or source URL";
   if (isStale(item.publishedAt, args.staleDays)) return `older than ${args.staleDays} days`;
-  if (!args.allowMissingImage && !item.imageUrl) return "missing publisher image";
+  if (!hasRequiredNewsImage(item.imageUrl)) return "missing publisher image";
   if (/subscribe|subscription|paywall|sign in to continue/i.test(`${item.summary} ${item.title}`)) return "possible paywall";
   return isDuplicate(item, fingerprints);
 };
@@ -948,7 +948,7 @@ const main = async () => {
       : "completed";
   manifest.nextSuggestion = accepted.length
     ? `Review ${accepted.length} ${args.approve ? "approved" : "candidate"} item(s), then run npm run agent:publish -- --domain news.`
-    : "No publishable news records were created; expand sources, allow missing images, or review rejected items.";
+    : "No publishable news records were created; expand sources or review rejected items with missing publisher images.";
 
   if (!args.dryRun) writeJson(path.join(runDir, "run-manifest.json"), manifest);
 

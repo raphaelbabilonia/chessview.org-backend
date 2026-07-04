@@ -1,5 +1,6 @@
 const { getNewsItems, getNewsSources, newsItems } = require("../data/newsItems");
 const NewsItem = require("../models/NewsItem");
+const { publicNewsImageQuery } = require("../utils/newsImagePolicy");
 
 const MAX_NEWS_LIMIT = 100;
 
@@ -9,7 +10,11 @@ const parsePositiveInt = (value, fallback) => {
   return Math.max(Math.trunc(parsed), 1);
 };
 
-const publicNewsQuery = { isPublic: true, publishStatus: { $in: ["ready", "published"] } };
+const publicNewsQuery = {
+  isPublic: true,
+  publishStatus: { $in: ["ready", "published"] },
+  ...publicNewsImageQuery
+};
 
 const isoDate = (value) => {
   if (!value) return null;

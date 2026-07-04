@@ -224,6 +224,7 @@ describe("agentIngestController", () => {
       summary: "A short source-first bridge summary gives readers enough context while still sending them to the original publisher.",
       sourceName: "Relaxed News",
       sourceUrl: "https://example.org/news/relaxed-agent-news-story",
+      imageUrl: "https://example.org/images/relaxed-agent-news-story.jpg",
       confidence: 0.72,
       publishStatus: "ready"
     };
@@ -240,9 +241,35 @@ describe("agentIngestController", () => {
     assert.equal(created.canonicalUrl, relaxed.sourceUrl);
     assert.equal(created.sourceHomeUrl, "https://example.org");
     assert.equal(created.slug, "relaxed-agent-news-story");
+    assert.equal(created.imageUrl, relaxed.imageUrl);
     assert.ok(created.dedupeKey.includes("relaxed-agent-news-story"));
     assert.ok(created.contentHash);
     assert.equal(created.evidenceRefs.length, 1);
+  });
+
+  it("rejects news without a publisher image", async () => {
+    const imageLess = {
+      ...newsItem,
+      title: "Agent Image Less News Story",
+      slug: "agent-image-less-news-story",
+      sourceUrl: "https://example.org/news/agent-image-less-news-story",
+      canonicalUrl: "https://example.org/news/agent-image-less-news-story",
+      originalId: "agent-news-no-image",
+      contentHash: "agent-news-no-image-hash",
+      dedupeKey: "2026-07-03|agent-image-less-news-story",
+      imageUrl: ""
+    };
+
+    const res = await postIngest(client, "/api/agent-ingest/news", {
+      dryRun: false,
+      runId: "publish-news-without-image",
+      items: [imageLess]
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.meta.rejected, 1);
+    assert.ok(res.body.rejected[0].reasons.includes("missing required publisher image"));
+    assert.equal(await NewsItem.countDocuments({ dedupeKey: imageLess.dedupeKey }), 0);
   });
 
   it("rejects gated items without writing them", async () => {

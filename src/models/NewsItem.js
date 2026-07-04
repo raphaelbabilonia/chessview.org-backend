@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 
 const relatedCoverageSchema = new mongoose.Schema(
   {
@@ -39,7 +40,15 @@ const newsItemSchema = new mongoose.Schema(
     language: { type: String, default: "en" },
     region: { type: String, default: "" },
     category: { type: String, default: "other" },
-    imageUrl: { type: String, default: "" },
+    imageUrl: {
+      type: String,
+      required: true,
+      trim: true,
+      validate: {
+        validator: hasRequiredNewsImage,
+        message: "News items require an absolute http(s) publisher image URL."
+      }
+    },
     tags: { type: [String], default: [] },
     relatedTournamentId: { type: String, default: "" },
     relatedTournamentName: { type: String, default: "" },

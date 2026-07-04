@@ -143,7 +143,19 @@ npm run agent:discover-news
 npm run agent:publish -- --domain news
 ```
 
-`agent:discover-news` reads `Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under the ignored `Codex News/` workspace, and requires publisher images by default. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, `--candidates-only` for review-only output, or `--allow-missing-image` when an important source has no feed image.
+`agent:discover-news` reads `Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under the ignored `Codex News/` workspace, and requires publisher images. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, or `--candidates-only` for review-only output.
+
+News articles require an absolute publisher image URL. Discovery, local publishing gates, API ingest, and public news queries all reject or hide records without images. To remove older rows created before this rule, run a dry check first:
+
+```bash
+npm run news:prune-missing-images
+```
+
+Then delete image-less rows from the configured MongoDB:
+
+```bash
+npm run news:prune-missing-images -- --delete
+```
 
 The automation stores titles, short original bridge summaries, attribution, canonical links, dates, tags, and image URLs. It does not download publisher images, copy full articles, bypass paywalls, write directly to MongoDB, or publish without the separate private ingest step.
 
