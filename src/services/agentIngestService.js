@@ -6,7 +6,7 @@ const User = require("../models/User");
 const slugify = require("../utils/slugify");
 
 const TOURNAMENT_CONFIDENCE_MIN = 0.75;
-const NEWS_CONFIDENCE_MIN = 0.8;
+const NEWS_CONFIDENCE_MIN = 0.7;
 
 const COMMON_BLOCKING_FLAGS = new Set([
   "legal_review_required",
@@ -16,11 +16,12 @@ const COMMON_BLOCKING_FLAGS = new Set([
 ]);
 
 const NEWS_BLOCKING_FLAGS = new Set([
-  ...COMMON_BLOCKING_FLAGS,
+  "legal_review_required",
+  "low_confidence",
+  "duplicate_possible",
   "paywall_detected",
   "primary_source_missing",
-  "discovery_only_source",
-  "summary_needs_review"
+  "discovery_only_source"
 ]);
 
 const allowedEventRatingTypes = new Set(["FIDE", "national", "unrated"]);
@@ -45,6 +46,32 @@ const originFromUrl = (value) => {
 };
 
 const firstString = (...values) => values.find((value) => typeof value === "string" && value.trim());
+
+const trimString = (value) => (typeof value === "string" ? value.trim() : "");
+
+const datePart = (value) => {
+  const date = asDate(value);
+  return date ? date.toISOString().slice(0, 10) : "unknown";
+};
+
+const finiteNumber = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const hashNewsContent = (item) =>
+  crypto
+    .createHash("sha256")
+    .update([item.canonicalUrl, item.title, item.summary, item.publishedAt || ""].join("|"))
+    .digest("hex");
+
+const sourceNameFromUrl = (value) => {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
 
 const isPlainObject = (value) =>
   value && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
@@ -181,6 +208,66 @@ const newsQuery = (item) => {
   return { $or: clauses };
 };
 
+const normalizeNewsInput = (item = {}) => {
+  const sourceUrl = firstString(item.sourceUrl, item.url, item.canonicalUrl, "");
+  const canonicalUrl = firstString(item.canonicalUrl, item.url, item.sourceUrl, "");
+  const title = trimString(item.title);
+  const sourceName = firstString(item.sourceName, sourceNameFromUrl(sourceUrl), "Unknown source");
+  const slug = trimString(item.slug) || slugify(title || canonicalUrl || sourceName, { fallback: "news", maxLength: 120 });
+  const summary =
+    firstString(item.summary, item.description, item.excerpt) ||
+    `${sourceName} reports ${title || "a chess news update"}. Open the original article for the full report, photos, updates, and source context.`;
+  const publishedAt = asDate(item.publishedAt);
+  const checkedAt = asDate(item.lastCheckedAt, new Date());
+  const dedupeKey = trimString(item.dedupeKey) || `${datePart(publishedAt || checkedAt)}|${slug}`;
+  const normalized = {
+    ...item,
+    title,
+    slug,
+    summary,
+    sourceName,
+    sourceHomeUrl: firstString(item.sourceHomeUrl, originFromUrl(canonicalUrl || sourceUrl)),
+    sourceUrl,
+    canonicalUrl,
+    url: canonicalUrl || sourceUrl,
+    publishedAt,
+    updatedAt: asDate(item.updatedAt),
+    language: trimString(item.language) || "other",
+    region: trimString(item.region),
+    category: trimString(item.category) || "other",
+    imageUrl: trimString(item.imageUrl),
+    tags: normalizeArray(item.tags).map(trimString).filter(Boolean),
+    relatedPlayerIds: normalizeArray(item.relatedPlayerIds).map(trimString).filter(Boolean),
+    relatedPlayerNames: normalizeArray(item.relatedPlayerNames).map(trimString).filter(Boolean),
+    relatedCoverage: normalizeArray(item.relatedCoverage),
+    confidence: finiteNumber(item.confidence, 0.75),
+    qualityFlags: normalizeArray(item.qualityFlags).map(trimString).filter(Boolean),
+    evidenceRefs: normalizeArray(item.evidenceRefs),
+    dedupeKey,
+    sourceLastCheckedAt: checkedAt,
+    lastCheckedAt: checkedAt,
+    approvedAt: asDate(item.approvedAt),
+    approvedBy: trimString(item.approvedBy),
+    publishStatus: trimString(item.publishStatus) || "ready"
+  };
+
+  normalized.contentHash = trimString(item.contentHash) || hashNewsContent(normalized);
+  if (normalized.evidenceRefs.length === 0 && normalized.sourceUrl) {
+    normalized.evidenceRefs = [
+      {
+        refId: "source-1",
+        sourceUrl: normalized.sourceUrl,
+        canonicalUrl: normalized.canonicalUrl,
+        capturedAt: normalized.lastCheckedAt,
+        excerpt: normalized.summary.slice(0, 240),
+        notes: "Created from source-provided metadata during agent ingest."
+      }
+    ];
+  }
+
+  return normalized;
+};
+
 const mapTournament = async (item, organizer, existing = null) => {
   const startDate = asDate(item.startDate);
   const endDate = asDate(item.endDate, startDate);
@@ -233,44 +320,48 @@ const mapTournament = async (item, organizer, existing = null) => {
   };
 };
 
-const mapNews = async (item, existing = null) => ({
-  title: item.title,
-  slug: existing?.slug || (await makeUniqueNewsSlug(item.title, item.slug, existing?._id)),
-  summary: item.summary,
-  summaryType: item.summaryType || "generated",
-  sourceName: item.sourceName,
-  sourceHomeUrl: originFromUrl(item.canonicalUrl || item.sourceUrl),
-  sourceUrl: item.sourceUrl,
-  canonicalUrl: item.canonicalUrl || item.sourceUrl,
-  url: item.canonicalUrl || item.sourceUrl,
-  author: item.author || "",
-  publishedAt: asDate(item.publishedAt),
-  updatedAt: asDate(item.updatedAt),
-  language: item.language || "other",
-  region: item.region || "",
-  category: item.category || "other",
-  imageUrl: item.imageUrl || "",
-  tags: normalizeArray(item.tags),
-  relatedTournamentId: item.relatedTournamentId || "",
-  relatedTournamentName: item.relatedTournamentName || "",
-  relatedPlayerIds: normalizeArray(item.relatedPlayerIds),
-  relatedPlayerNames: normalizeArray(item.relatedPlayerNames),
-  relatedCoverage: normalizeArray(item.relatedCoverage),
-  originalId: item.originalId || "",
-  contentHash: item.contentHash || "",
-  dedupeKey: item.dedupeKey || "",
-  confidence: item.confidence || 0,
-  qualityFlags: normalizeArray(item.qualityFlags),
-  evidenceRefs: normalizeArray(item.evidenceRefs).map((ref) => ({
+const mapNews = async (item, existing = null) => {
+  const normalized = normalizeNewsInput(item);
+
+  return {
+    title: normalized.title,
+    slug: existing?.slug || (await makeUniqueNewsSlug(normalized.title, normalized.slug, existing?._id)),
+    summary: normalized.summary,
+    summaryType: normalized.summaryType || "generated",
+    sourceName: normalized.sourceName,
+    sourceHomeUrl: normalized.sourceHomeUrl,
+    sourceUrl: normalized.sourceUrl,
+    canonicalUrl: normalized.canonicalUrl,
+    url: normalized.url,
+    author: normalized.author || "",
+    publishedAt: normalized.publishedAt,
+    updatedAt: normalized.updatedAt,
+    language: normalized.language,
+    region: normalized.region || "",
+    category: normalized.category,
+    imageUrl: normalized.imageUrl,
+    tags: normalized.tags,
+    relatedTournamentId: normalized.relatedTournamentId || "",
+    relatedTournamentName: normalized.relatedTournamentName || "",
+    relatedPlayerIds: normalized.relatedPlayerIds,
+    relatedPlayerNames: normalized.relatedPlayerNames,
+    relatedCoverage: normalized.relatedCoverage,
+    originalId: normalized.originalId || "",
+    contentHash: normalized.contentHash,
+    dedupeKey: normalized.dedupeKey,
+    confidence: normalized.confidence,
+    qualityFlags: normalized.qualityFlags,
+    evidenceRefs: normalized.evidenceRefs.map((ref) => ({
     ...ref,
     capturedAt: asDate(ref.capturedAt)
   })),
-  sourceLastCheckedAt: asDate(item.lastCheckedAt),
-  approvedAt: asDate(item.approvedAt),
-  approvedBy: item.approvedBy || "",
-  publishStatus: "ready",
-  isPublic: true
-});
+    sourceLastCheckedAt: normalized.sourceLastCheckedAt,
+    approvedAt: normalized.approvedAt,
+    approvedBy: normalized.approvedBy,
+    publishStatus: "ready",
+    isPublic: true
+  };
+};
 
 const ingestTournaments = async ({ items, dryRun = false }) => {
   const result = { created: [], updated: [], skipped: [], rejected: [], errors: [] };
@@ -325,28 +416,29 @@ const ingestNews = async ({ items, dryRun = false }) => {
 
   for (const item of items) {
     try {
-      const reasons = ensureReady(item, { minConfidence: NEWS_CONFIDENCE_MIN, blockingFlags: NEWS_BLOCKING_FLAGS });
-      const query = newsQuery(item);
+      const normalized = normalizeNewsInput(item);
+      const reasons = ensureReady(normalized, { minConfidence: NEWS_CONFIDENCE_MIN, blockingFlags: NEWS_BLOCKING_FLAGS });
+      const query = newsQuery(normalized);
       if (!query) reasons.push("missing dedupe key, canonical URL, source URL, original id, and content hash");
-      if (!item.title || !item.slug || !item.summary || !item.sourceName || !item.sourceUrl || !item.canonicalUrl) {
+      if (!normalized.title || !normalized.summary || !normalized.sourceName || !normalized.sourceUrl || !normalized.canonicalUrl) {
         reasons.push("missing required news fields");
       }
       if (reasons.length) {
-        result.rejected.push({ title: item.title || "", dedupeKey: item.dedupeKey || "", reasons });
+        result.rejected.push({ title: normalized.title || "", dedupeKey: normalized.dedupeKey || "", reasons });
         continue;
       }
 
       const existing = await NewsItem.findOne(query);
       if (dryRun) {
         (existing ? result.updated : result.created).push({
-          title: item.title,
-          dedupeKey: item.dedupeKey,
+          title: normalized.title,
+          dedupeKey: normalized.dedupeKey,
           action: existing ? "would_update" : "would_create"
         });
         continue;
       }
 
-      const payload = await mapNews(item, existing);
+      const payload = await mapNews(normalized, existing);
       if (existing) {
         Object.assign(existing, payload);
         await existing.save();

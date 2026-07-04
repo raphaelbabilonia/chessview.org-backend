@@ -11,31 +11,55 @@ const parsePositiveInt = (value, fallback) => {
 
 const publicNewsQuery = { isPublic: true, publishStatus: { $in: ["ready", "published"] } };
 
+const isoDate = (value) => {
+  if (!value) return null;
+  if (typeof value.toISOString === "function") return value.toISOString();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
 const serializeNews = (item) => ({
-  id: item.slug || String(item._id),
+  id: item.slug || item.id || String(item._id),
   title: item.title,
+  description: item.summary,
   sourceName: item.sourceName,
   sourceHomeUrl: item.sourceHomeUrl,
+  sourceUrl: item.sourceUrl,
+  canonicalUrl: item.canonicalUrl,
   url: item.url || item.canonicalUrl || item.sourceUrl,
+  author: item.author,
   imageUrl: item.imageUrl,
-  publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
+  publishedAt: isoDate(item.publishedAt),
+  updatedAt: isoDate(item.updatedAt),
+  language: item.language,
+  region: item.region,
   category: item.category,
-  summary: item.summary
+  summary: item.summary,
+  summaryType: item.summaryType,
+  tags: item.tags || [],
+  relatedTournamentName: item.relatedTournamentName,
+  relatedPlayerNames: item.relatedPlayerNames || [],
+  relatedCoverage: (item.relatedCoverage || []).map((coverage) => ({
+    sourceName: coverage.sourceName,
+    url: coverage.url,
+    relationship: coverage.relationship
+  })),
+  sourceLastCheckedAt: isoDate(item.sourceLastCheckedAt)
 });
 
 const getDbNewsSources = (items) =>
   Object.values(
     items.reduce((sources, item) => {
-      const key = item.sourceName;
+      const key = item.sourceName || "Unknown source";
       sources[key] ||= {
-        name: item.sourceName,
-        url: item.sourceHomeUrl,
+        name: key,
+        url: item.sourceHomeUrl || item.sourceUrl || item.canonicalUrl || "",
         count: 0
       };
       sources[key].count += 1;
       return sources;
     }, {})
-  );
+  ).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
 const listNews = async (req, res) => {
   const limit =
@@ -58,7 +82,7 @@ const listNews = async (req, res) => {
     });
   }
 
-  const data = getNewsItems({ limit: req.query.limit });
+  const data = getNewsItems({ limit: req.query.limit }).map(serializeNews);
 
   res.json({
     success: true,

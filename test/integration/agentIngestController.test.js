@@ -92,6 +92,7 @@ const newsItem = {
   language: "en",
   region: "global",
   category: "tournament",
+  imageUrl: "https://example.org/images/agent-test-news-story.jpg",
   tags: ["agent", "test"],
   originalId: "agent-news-001",
   contentHash: "agent-news-hash-001",
@@ -202,6 +203,9 @@ describe("agentIngestController", () => {
     assert.equal(list.status, 200);
     assert.equal(list.body.data[0].id, newsItem.slug);
     assert.equal(list.body.data[0].url, newsItem.canonicalUrl);
+    assert.equal(list.body.data[0].imageUrl, newsItem.imageUrl);
+    assert.equal(list.body.data[0].sourceUrl, newsItem.sourceUrl);
+    assert.deepEqual(list.body.data[0].tags, newsItem.tags);
 
     const second = await postIngest(client, "/api/agent-ingest/news", {
       dryRun: false,
@@ -212,6 +216,33 @@ describe("agentIngestController", () => {
     assert.equal(second.body.meta.created, 0);
     assert.equal(second.body.meta.updated, 1);
     assert.equal(await NewsItem.countDocuments({ dedupeKey: newsItem.dedupeKey }), 1);
+  });
+
+  it("derives bridge fields for minimally normalized news", async () => {
+    const relaxed = {
+      title: "Relaxed Agent News Story",
+      summary: "A short source-first bridge summary gives readers enough context while still sending them to the original publisher.",
+      sourceName: "Relaxed News",
+      sourceUrl: "https://example.org/news/relaxed-agent-news-story",
+      confidence: 0.72,
+      publishStatus: "ready"
+    };
+
+    const res = await postIngest(client, "/api/agent-ingest/news", {
+      dryRun: false,
+      runId: "publish-relaxed-news",
+      items: [relaxed]
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.meta.created, 1);
+
+    const created = await NewsItem.findOne({ sourceUrl: relaxed.sourceUrl }).lean();
+    assert.equal(created.canonicalUrl, relaxed.sourceUrl);
+    assert.equal(created.sourceHomeUrl, "https://example.org");
+    assert.equal(created.slug, "relaxed-agent-news-story");
+    assert.ok(created.dedupeKey.includes("relaxed-agent-news-story"));
+    assert.ok(created.contentHash);
+    assert.equal(created.evidenceRefs.length, 1);
   });
 
   it("rejects gated items without writing them", async () => {

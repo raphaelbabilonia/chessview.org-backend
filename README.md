@@ -112,6 +112,19 @@ npm run events:backfill -- --apply
 
 The backfill only fills empty `timeControl` or `ratingType` values when they can be inferred safely from stored title/description text.
 
+## News Discovery Workflow
+
+Use the local news automation to collect source-first article cards from RSS/Atom feeds and lightweight publisher metadata:
+
+```bash
+npm run agent:discover-news
+npm run agent:publish -- --domain news
+```
+
+`agent:discover-news` reads `Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under the ignored `Codex News/` workspace, and requires publisher images by default. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, `--candidates-only` for review-only output, or `--allow-missing-image` when an important source has no feed image.
+
+The automation stores titles, short original bridge summaries, attribution, canonical links, dates, tags, and image URLs. It does not download publisher images, copy full articles, bypass paywalls, write directly to MongoDB, or publish without the separate private ingest step.
+
 ## Demo Users
 
 The seed script creates local/demo accounts:
