@@ -9,6 +9,16 @@ The founding idea is to help clubs, academies, organizers, players, and spectato
 
 The frontend lives at [raphaelbabilonia/chessview.org-frontend](https://github.com/raphaelbabilonia/chessview.org-frontend).
 
+## Open Source And Commercial Boundaries
+
+- Source code is licensed under AGPL-3.0-only.
+- The ChessView name, ChessView.org name, logos, icons, domains, and brand identity are reserved trademarks/brand assets. See [TRADEMARKS.md](./TRADEMARKS.md).
+- Production databases, curated tournament/news data, local discovery workspaces, source evidence, dedupe state, AI search indexes, analytics databases, embeddings, recommendations, uploads, and commercial datasets are not open source. See [DATA_LICENSE.md](./DATA_LICENSE.md).
+- Contributors must keep private data, third-party proprietary material, credentials, and local discovery output out of pull requests. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+- The official hosted ChessView service may include paid hosting, support, integrations, AI search, analytics, and other commercial services built around the AGPL core.
+
+See [OPEN_SOURCE_POLICY.md](./OPEN_SOURCE_POLICY.md) for the full policy.
+
 ## Current MVP
 
 - Public event API with search and filters.
@@ -88,6 +98,8 @@ This runs the Node test suite, checks JavaScript syntax, and audits dependencies
 ## Curated Tournament Data
 
 The backend does not run automatic scrapers, crawler jobs, or source-specific API importers. Public event data is created and updated through the ChessView API by organizers, admins, or supervised agentic workflows that review source material before publishing.
+
+Local discovery workspaces such as `Codex News/` and `Codex Tournaments/` are proprietary operational folders. They are ignored by Git and should not be committed to the public repository.
 
 Event records still preserve source and attribution fields such as `source`, `externalLinks`, `websiteUrl`, `resultsUrl`, and `regulationsUrl`. These fields are for curated/manual metadata and public links, not for backend-side automatic ingestion.
 
@@ -171,4 +183,6 @@ ChessView is a clean-room rebuild inspired by common chess tournament workflows.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0. See [LICENSE](./LICENSE).
+This project source code is licensed under the GNU Affero General Public License v3.0 only. See [LICENSE](./LICENSE).
+
+The code license does not grant rights to ChessView trademarks, brand assets, production data, curated datasets, AI/analytics assets, private infrastructure, or hosted-service data. See [OPEN_SOURCE_POLICY.md](./OPEN_SOURCE_POLICY.md).
