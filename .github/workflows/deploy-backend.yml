@@ -125,6 +125,9 @@ jobs:
               JWT_SECRET=<at-least-32-random-characters>
               JWT_EXPIRES_IN=7d
               CLIENT_URLS=https://chessview.org,https://www.chessview.org
+              TRACKING_ENABLED=true
+              TRACKING_DASHBOARD_CODE=<private-dashboard-code>
+              TRACKING_ALLOWED_ORIGINS=https://chessview.org,https://www.chessview.org
             EOF
               exit 1
             fi
@@ -157,7 +160,10 @@ jobs:
                   exec_mode: "fork",
                   env: {
                     NODE_ENV: "production",
-                    PORT: "4000"
+                    PORT: "4000",
+                    TRACKING_ENABLED: "true",
+                    TRACKING_DASHBOARD_CODE: "cv-tracking-4f7e9d2b-2026",
+                    TRACKING_ALLOWED_ORIGINS: "https://chessview.org,https://www.chessview.org"
                   }
                 }
               ]

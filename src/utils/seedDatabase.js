@@ -7,6 +7,9 @@ const Registration = require("../models/Registration");
 const Player = require("../models/Player");
 const Round = require("../models/Round");
 const Pairing = require("../models/Pairing");
+const TrackingDailyAggregate = require("../models/TrackingDailyAggregate");
+const TrackingEvent = require("../models/TrackingEvent");
+const TrackingAutomationRun = require("../models/TrackingAutomationRun");
 
 // Populates the connected MongoDB with demo data. Assumes an active mongoose
 // connection (does NOT connect or disconnect). Used by the seed CLI and by the
@@ -21,7 +24,10 @@ const seedDatabase = async () => {
     Registration.deleteMany({}),
     Player.deleteMany({}),
     Round.deleteMany({}),
-    Pairing.deleteMany({})
+    Pairing.deleteMany({}),
+    TrackingDailyAggregate.deleteMany({}),
+    TrackingEvent.deleteMany({}),
+    TrackingAutomationRun.deleteMany({})
   ]);
 
   const passwordHash = await bcrypt.hash("password123", 10);

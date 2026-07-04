@@ -17,6 +17,8 @@
     "verify": "npm test && npm run check:syntax && npm audit --audit-level=moderate",
     "smoke:broadcast": "node --test test/integration/broadcastController.test.js",
     "events:backfill": "node src/scripts/backfillEventMetadata.js",
+    "tracking:audit": "node src/scripts/auditTrackingCoverage.js",
+    "tracking:rollup": "node src/scripts/rollupTrackingAnalytics.js",
     "agent:discover-news": "node src/scripts/discoverNewsFeeds.js",
     "agent:publish": "node src/scripts/publishApprovedAgentContent.js"
   },

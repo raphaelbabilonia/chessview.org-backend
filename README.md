@@ -81,9 +81,31 @@ JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:3000
 CLIENT_URLS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173,http://127.0.0.1:5174
 NODE_ENV=development
+TRACKING_ENABLED=true
+TRACKING_DASHBOARD_CODE=cv-tracking-4f7e9d2b-2026
+TRACKING_ALLOWED_ORIGINS=http://localhost:3001,http://127.0.0.1:3001
+TRACKING_SALT=change-this-local-tracking-salt
 ```
 
 Use a strong `JWT_SECRET` in any shared, staging, or production environment. Do not commit `.env`.
+
+## First-Party Tracking
+
+The API includes an internal analytics endpoint for the public Next.js site:
+
+- `POST /api/tracking/events` stores pageviews, filter usage, language/theme changes, and outbound click events.
+- `GET /api/tracking/dashboard/:code?days=30&rollup=true` returns rollups for the hidden dashboard.
+- Visitor and session ids are HMAC hashed before storage; raw browser ids are not stored.
+- Tracking events expire after 90 days through the MongoDB TTL index on `receivedAt`.
+
+Run tracking maintenance locally with:
+
+```bash
+npm run tracking:audit
+npm run tracking:rollup -- --days=90
+```
+
+`npm run tracking:audit` writes local-only run history under the ignored `Codex Tracking/` workspace.
 
 ## Verification
 
