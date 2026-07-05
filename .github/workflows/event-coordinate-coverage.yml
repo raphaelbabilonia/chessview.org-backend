@@ -1,0 +1,52 @@
+name: Event Coordinate Coverage
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: chessview-event-coordinate-coverage
+  cancel-in-progress: false
+
+jobs:
+  backfill-production-coordinates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Run production coordinate backfill
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 20m
+          script: |
+            set -e
+
+            SITE_USER="chessview-api"
+            TARGET_DIR="/home/chessview-api/htdocs/api.chessview.org"
+
+            run_as_site_user() {
+              if id "$SITE_USER" >/dev/null 2>&1 && [ "$(id -un)" != "$SITE_USER" ]; then
+                if [ "$(id -u)" -eq 0 ]; then
+                  sudo -H -u "$SITE_USER" bash -lc "$1"
+                else
+                  sudo -n -H -u "$SITE_USER" bash -lc "$1"
+                fi
+              else
+                bash -lc "$1"
+              fi
+            }
+
+            if [ ! -f "$TARGET_DIR/package.json" ] || [ ! -f "$TARGET_DIR/src/scripts/backfillEventCoordinates.js" ]; then
+              echo "Coordinate backfill script is not deployed yet in $TARGET_DIR"
+              exit 1
+            fi
+
+            run_as_site_user "cd '$TARGET_DIR' && npm run events:coordinates"
+            run_as_site_user "cd '$TARGET_DIR' && npm run events:coordinates -- --geocode --apply --max-geocode=500 --delay-ms=1200"
+            run_as_site_user "cd '$TARGET_DIR' && npm run events:coordinates"

@@ -51,6 +51,17 @@ describe("eventController", () => {
             registration: { fee: 30, currency: "EUR" },
             schedule: [{ label: "Round 1", date: "2026-09-01" }],
             historicalEditions: [{ year: 2025, playerCount: 64 }]
+          },
+          region: "Piemonte",
+          location: {
+            city: "Cuneo",
+            country: "Italy",
+            region: "Piemonte",
+            longitude: 7.551,
+            latitude: 44.384,
+            coordinates: [7.551, 44.384],
+            coordinateStatus: "resolved",
+            coordinateSource: "curated"
           }
         }
       );
@@ -63,6 +74,8 @@ describe("eventController", () => {
       assert.equal(event.metadataSummary.hasRegistration, true);
       assert.equal(event.metadataSummary.hasSchedule, true);
       assert.equal(event.metadataSummary.hasHistoricalData, true);
+      assert.deepEqual(event.location.coordinates, [7.551, 44.384]);
+      assert.equal(event.region, "Piemonte");
     });
 
     it("can include past public events when explicitly requested", async () => {
@@ -229,6 +242,18 @@ describe("eventController", () => {
         {
           title: "Zod Test Open",
           city: "Bra",
+          country: "Italy",
+          region: "Piemonte",
+          location: {
+            city: "Bra",
+            country: "Italy",
+            region: "Piemonte",
+            longitude: 7.855,
+            latitude: 44.697,
+            coordinates: [7.855, 44.697],
+            coordinateStatus: "resolved",
+            coordinateSource: "manual"
+          },
           startDate: "2026-09-01T09:00:00.000Z",
           endDate: "2026-09-02T18:00:00.000Z",
           status: "published",
@@ -241,6 +266,8 @@ describe("eventController", () => {
       assert.notEqual(res.body.data.organizer, "000000000000000000000999", "organizer from token, not body");
       assert.equal(res.body.data.slug, "zod-test-open", "slug derived from title");
       assert.equal(res.body.data.status, "published", "allowed field applied");
+      assert.equal(res.body.data.country, "Italy");
+      assert.deepEqual(res.body.data.location.coordinates, [7.855, 44.697]);
     });
   });
 

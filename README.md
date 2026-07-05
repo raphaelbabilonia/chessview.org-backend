@@ -134,6 +134,21 @@ npm run events:backfill -- --apply
 
 The backfill only fills empty `timeControl` or `ratingType` values when they can be inferred safely from stored title/description text.
 
+To keep country coverage maps complete without trying to map the whole world, run the coordinate backfill. By default it scans only active public tournaments already in the database and prints a dry-run report:
+
+```bash
+npm run events:coordinates
+npm run events:coordinates -- --apply
+```
+
+The command first uses the curated city table for known tournament locations. To let a weekly maintenance run look up new current gaps through OpenStreetMap Nominatim, enable the throttled geocoder:
+
+```bash
+npm run events:coordinates -- --geocode --apply
+```
+
+Set `CHESSVIEW_GEOCODER_USER_AGENT`, `GEOCODING_MAX_PER_RUN`, and `GEOCODING_DELAY_MS` in production if the scheduled job uses geocoding. The default geocoding cap is 500 unique locations per run so a weekly pass can cover the current production tournament set while still throttling requests. The script stores resolved coordinates in `location.coordinates` and `metadata.logistics.coordinates` so the public Next.js country maps can render tournament dots.
+
 ## News Discovery Workflow
 
 Use the local news automation to collect source-first article cards from RSS/Atom feeds and lightweight publisher metadata:

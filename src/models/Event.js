@@ -1,5 +1,25 @@
 const mongoose = require("mongoose");
 
+const eventLocationSchema = new mongoose.Schema(
+  {
+    city: { type: String, default: "" },
+    region: { type: String, default: "" },
+    country: { type: String, default: "" },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
+    coordinates: { type: [Number], default: undefined },
+    coordinateStatus: {
+      type: String,
+      enum: ["", "resolved", "missing", "manual-review"],
+      default: ""
+    },
+    coordinateSource: { type: String, default: "" },
+    coordinateLabel: { type: String, default: "" },
+    geocodedAt: { type: Date, default: null }
+  },
+  { _id: false }
+);
+
 const eventSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -24,6 +44,8 @@ const eventSchema = new mongoose.Schema(
     },
     timeControl: { type: String, default: "" },
     country: { type: String, default: "" },
+    region: { type: String, default: "" },
+    location: { type: eventLocationSchema, default: () => ({}) },
     ratingType: {
       type: String,
       enum: ["", "FIDE", "national", "unrated"],
