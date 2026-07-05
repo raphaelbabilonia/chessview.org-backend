@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const AgentSubmission = require("../models/AgentSubmission");
 const User = require("../models/User");
 const Event = require("../models/Event");
 const NewsItem = require("../models/NewsItem");
@@ -17,6 +18,7 @@ const TrackingAutomationRun = require("../models/TrackingAutomationRun");
 // events created.
 const seedDatabase = async () => {
   await Promise.all([
+    AgentSubmission.deleteMany({}),
     User.deleteMany({}),
     Event.deleteMany({}),
     NewsItem.deleteMany({}),

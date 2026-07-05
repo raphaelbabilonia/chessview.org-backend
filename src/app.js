@@ -1,6 +1,7 @@
 const cors = require("cors");
 const express = require("express");
 const path = require("path");
+const agentCollaborationRoutes = require("./routes/agentCollaborationRoutes");
 const agentIngestRoutes = require("./routes/agentIngestRoutes");
 const authRoutes = require("./routes/authRoutes");
 const broadcastRoutes = require("./routes/broadcastRoutes");
@@ -61,6 +62,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/agent-collaboration", agentCollaborationRoutes);
 app.use("/api/agent-ingest", agentIngestRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/news", newsRoutes);

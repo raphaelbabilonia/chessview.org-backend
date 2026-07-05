@@ -23,6 +23,7 @@
     "tracking:rollup": "node src/scripts/rollupTrackingAnalytics.js",
     "agent:discover-news": "node src/scripts/discoverNewsFeeds.js",
     "agent:publish": "node src/scripts/publishApprovedAgentContent.js",
+    "agent:review-public": "node src/scripts/reviewPublicAgentSubmissions.js",
     "news:prune-missing-images": "node src/scripts/pruneNewsWithoutImages.js"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "cors": "^2",
     "dotenv": "^17",
     "express": "^5",
+    "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9",
     "mongoose": "^8",
     "multer": "^2",

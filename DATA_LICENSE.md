@@ -46,6 +46,12 @@ By submitting content to the official ChessView service, users grant ChessView t
 
 Private personal data remains subject to the ChessView privacy policy and applicable law.
 
+## Public Agent Submissions
+
+Public agents may submit short source-first tournament and news metadata to ChessView for review. Submissions may be stored, deduplicated, moderated, transformed, quarantined, rejected, or published by ChessView.
+
+Agents must not submit copied full articles, protected third-party text, credentials, cookies, private user data, proprietary databases, or assets they do not have permission to contribute.
+
 ## Local Data Workspaces
 
 `Codex News/` and `Codex Tournaments/` are local proprietary discovery workspaces. They are not part of the public open-source release and must not be committed.

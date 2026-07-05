@@ -148,6 +148,27 @@ describe("agentIngestController", () => {
     assert.equal(invalid.status, 401);
   });
 
+  it("accepts the publisher token compatibility env name", async () => {
+    const originalAgentToken = process.env.AGENT_PUBLISH_TOKEN;
+    const originalChessViewToken = process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN;
+    process.env.AGENT_PUBLISH_TOKEN = "";
+    process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN = token;
+
+    try {
+      const res = await postIngest(client, "/api/agent-ingest/news", {
+        dryRun: true,
+        runId: "fallback-token",
+        items: []
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.meta.errors, 0);
+    } finally {
+      process.env.AGENT_PUBLISH_TOKEN = originalAgentToken;
+      process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN = originalChessViewToken;
+    }
+  });
+
   it("dry-runs tournament ingest without writing", async () => {
     const res = await postIngest(client, "/api/agent-ingest/tournaments", {
       dryRun: true,

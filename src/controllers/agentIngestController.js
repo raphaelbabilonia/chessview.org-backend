@@ -9,7 +9,7 @@ const tokenMatches = (providedToken, configuredToken) => {
 };
 
 const requireAgentToken = (req, res, next) => {
-  const configuredToken = process.env.AGENT_PUBLISH_TOKEN;
+  const configuredToken = process.env.AGENT_PUBLISH_TOKEN || process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN;
   if (!configuredToken) {
     return res.status(503).json({
       success: false,

@@ -31,6 +31,9 @@ CLIENT_URLS=https://chessview.org,https://www.chessview.org,https://app.chessvie
 AGENT_PUBLISH_TOKEN=<separate-random-agent-token>
 AGENT_PUBLISH_USER_EMAIL=<admin-or-organizer-email>
 AGENT_SERVICE_USER_EMAIL=agent-publisher@chessview.local
+AGENT_COLLABORATION_SALT=<separate-random-public-queue-salt>
+AGENT_COLLABORATION_RATE_LIMIT_MAX=30
+AGENT_COLLABORATION_REVIEW_LIMIT=250
 ```
 
 Generate `JWT_SECRET` with:
@@ -47,7 +50,17 @@ The backend workflow assumes CloudPanel has a Node.js site for `api.chessview.or
 2. Create or import public event data through the authenticated API or a supervised agentic workflow.
 3. Review source attribution, official links, dates, and publication status before exposing events publicly.
 4. Configure the local publisher with `CHESSVIEW_API_BASE_URL=https://api.chessview.org/api` and the matching `CHESSVIEW_AGENT_PUBLISH_TOKEN` in `.env.local` or machine env only.
-5. Verify `/api/health`, `/api/events`, `/api/news`, and at least one event detail route against production data.
+5. Verify `/api/health`, `/api/events`, `/api/news`, `/api/agent-collaboration/openapi.json`, and at least one event detail route against production data.
+
+## Public Agent Collaboration
+
+- The public endpoint is `POST /api/agent-collaboration/submissions`; it queues submissions only and does not require `AGENT_PUBLISH_TOKEN`.
+- Keep `AGENT_COLLABORATION_SALT` private so request IP/user-agent hashes cannot be compared across environments.
+- Run the weekly review as a dry run first: `npm run agent:review-public`.
+- Production publish pass: `npm run agent:review-public -- --publish`.
+- Suggested schedule: Monday 03:00 Europe/Rome.
+- Keep `CHESSVIEW_API_BASE_URL` and `AGENT_PUBLISH_TOKEN` available to the review job if it should publish through the deployed private ingest endpoint.
+- Review logs for quarantined/rejected items before changing thresholds or accepting new source categories.
 
 ## Source Policy
 
@@ -55,6 +68,7 @@ The backend workflow assumes CloudPanel has a Node.js site for `api.chessview.or
 - Keep official source attribution visible when curated data references an organizer or publisher.
 - Do not copy full regulations, full PDFs, full rankings, or private user data unless the source and usage are explicitly permitted.
 - Agentic data gathering should review and normalize information before writing it through private ingest endpoints.
+- Public agent collaboration must accept short source-first metadata only, never copied full articles, private user data, credentials, cookies, or private-network URLs.
 - Do not use direct MongoDB writes or VPS SSH scripts as the normal publishing path.
 
 ## Suggested Process Supervisors

@@ -33,6 +33,7 @@ See [OPEN_SOURCE_POLICY.md](./OPEN_SOURCE_POLICY.md) for the full policy.
 - MongoDB persistence (Mongoose); tests run against an ephemeral in-memory MongoDB.
 - Curated data workflow: event/news source metadata is stored only when entered manually or by a supervised agentic workflow.
 - Agentic publishing: approved JSON can be published through private `/api/agent-ingest/*` endpoints guarded by `AGENT_PUBLISH_TOKEN`; secrets stay in production env or local `.env.local`, never in the public repo.
+- Public agent collaboration: external agents can submit source-first tournament and news candidates to `/api/agent-collaboration/submissions`; submissions enter a queue and never publish immediately.
 
 ## Tech Stack
 
@@ -164,7 +165,7 @@ npm run agent:discover-news
 npm run agent:publish -- --domain news --publish
 ```
 
-`agent:discover-news` reads `Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under the ignored `Codex News/` workspace, and requires publisher images. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, or `--candidates-only` for review-only output.
+`agent:discover-news` reads `Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under the ignored `Codex News/` workspace, and requires publisher images. The default target is 20 items. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, or `--candidates-only` for review-only output.
 
 News articles require an absolute publisher image URL. Discovery, local publishing gates, API ingest, and public news queries all reject or hide records without images. The publish step also attempts to repair missing image fields from source-page metadata before rejecting a record. To remove older rows created before this rule, run a dry check first:
 
@@ -179,6 +180,32 @@ npm run news:prune-missing-images -- --delete
 ```
 
 The automation stores titles, short original bridge summaries, attribution, canonical links, dates, tags, and image URLs. It does not download publisher images, copy full articles, bypass paywalls, write directly to MongoDB, or publish without the separate private ingest step.
+
+## Public Agent Collaboration Workflow
+
+The public collaboration queue lets external agents contribute source-first metadata without receiving private publisher credentials.
+
+Machine-readable docs:
+
+- `GET /api/agent-collaboration/openapi.json`
+- `GET /api/agent-collaboration/schema.json`
+
+Submission endpoint:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/agent-collaboration/submissions \
+  -H "Content-Type: application/json" \
+  -d '{"schemaVersion":1,"agent":{"name":"Example Agent"},"items":[{"kind":"event","title":"Example Open","startDate":"2026-11-10","country":"Italy","city":"Milano","sourceName":"Organizer","sourceUrl":"https://example.org/open","confidence":0.9}]}'
+```
+
+Rules:
+
+- V1 accepts `event`/`tournament` and `news` items only.
+- Public submissions are rate-limited, validated, deduplicated, and stored as queued `AgentSubmission` records.
+- Unsafe URLs, localhost/private-network URLs, copied full articles, credentials, cookies, private data, and oversized payloads are rejected.
+- Weekly review is dry-run by default: `npm run agent:review-public`.
+- Publish mode: `npm run agent:review-public -- --publish`.
+- High-confidence accepted items are promoted through the same private ingest logic used by `agent:publish`; low-confidence or risky items are quarantined.
 
 ## Demo Users
 

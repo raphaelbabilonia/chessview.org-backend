@@ -416,8 +416,8 @@ const gateNewsImages = async (items) => {
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
-  const token = process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN;
-  if (!token) throw new Error("Missing CHESSVIEW_AGENT_PUBLISH_TOKEN");
+  const token = process.env.AGENT_PUBLISH_TOKEN || process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN;
+  if (!token) throw new Error("Missing AGENT_PUBLISH_TOKEN or CHESSVIEW_AGENT_PUBLISH_TOKEN");
 
   const runId = `local-agent-publish-${new Date().toISOString()}`;
   const shouldPublishTournaments = args.domain === "all" || args.domain === "tournaments";
