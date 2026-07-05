@@ -169,6 +169,7 @@ const main = async () => {
   await connectDB();
 
   const apply = hasFlag("apply");
+  const failOnMissing = hasFlag("fail-on-missing");
   const geocode = hasFlag("geocode") || String(process.env.GEOCODING_ENABLED || "").toLowerCase() === "true";
   const includePast = hasFlag("include-past");
   const maxGeocode = parsePositiveInt(argValue("max-geocode", process.env.GEOCODING_MAX_PER_RUN || "500"), 500);
@@ -308,28 +309,29 @@ const main = async () => {
     }
   }
 
-  console.log(
-    JSON.stringify(
-      {
-        ok: errors.length === 0 && unresolved.length === 0,
-        mode: apply ? "apply" : "dry-run",
-        geocoding: geocode ? "enabled" : "disabled",
-        scanned: events.length,
-        eventsWithoutLocationCoordinates: eventsNeedingLocation.length,
-        missingEvents: unresolved.reduce((sum, item) => sum + item.count, 0),
-        uniqueMissingLocations: unresolved.length,
-        resolvedFromExistingEvents: existingCoordinateEvents.length,
-        resolvedLocations: resolvedByKey.size,
-        appliedEvents,
-        geocodeCalls,
-        updates: updates.slice(0, 100),
-        unresolved: unresolved.slice(0, 100),
-        errors
-      },
-      null,
-      2
-    )
-  );
+  const missingEvents = unresolved.reduce((sum, item) => sum + item.count, 0);
+  const result = {
+    ok: errors.length === 0 && unresolved.length === 0,
+    mode: apply ? "apply" : "dry-run",
+    geocoding: geocode ? "enabled" : "disabled",
+    scanned: events.length,
+    eventsWithoutLocationCoordinates: eventsNeedingLocation.length,
+    missingEvents,
+    uniqueMissingLocations: unresolved.length,
+    resolvedFromExistingEvents: existingCoordinateEvents.length,
+    resolvedLocations: resolvedByKey.size,
+    appliedEvents,
+    geocodeCalls,
+    updates: updates.slice(0, 100),
+    unresolved: unresolved.slice(0, 100),
+    errors
+  };
+
+  console.log(JSON.stringify(result, null, 2));
+
+  if (failOnMissing && !result.ok) {
+    process.exitCode = 1;
+  }
 };
 
 main()

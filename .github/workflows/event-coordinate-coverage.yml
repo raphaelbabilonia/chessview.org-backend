@@ -47,6 +47,6 @@ jobs:
               exit 1
             fi
 
-            run_as_site_user "cd '$TARGET_DIR' && npm run events:coordinates"
-            run_as_site_user "cd '$TARGET_DIR' && npm run events:coordinates -- --geocode --apply --max-geocode=500 --delay-ms=1200"
-            run_as_site_user "cd '$TARGET_DIR' && npm run events:coordinates"
+            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js"
+            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js --geocode --apply --max-geocode=500 --delay-ms=1200"
+            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js --fail-on-missing"
