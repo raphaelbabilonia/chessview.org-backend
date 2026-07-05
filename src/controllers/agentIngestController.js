@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { ingestNews, ingestTournaments } = require("../services/agentIngestService");
+const { applyEventCoordinateUpdates } = require("../services/eventCoordinateService");
 
 const tokenMatches = (providedToken, configuredToken) => {
   const provided = Buffer.from(providedToken);
@@ -72,7 +73,32 @@ const ingestNewsBatch = async (req, res, next) => {
   }
 };
 
+const ingestCoordinateBatch = async (req, res, next) => {
+  try {
+    const { dryRun, runId, items } = normalizeBatch(req);
+    const result = await applyEventCoordinateUpdates({ items, dryRun });
+    return res.json({
+      success: result.errors.length === 0 && result.rejected.length === 0,
+      runId,
+      dryRun,
+      updated: result.updated,
+      skipped: result.skipped,
+      rejected: result.rejected,
+      errors: result.errors,
+      meta: {
+        updated: result.updated.length,
+        skipped: result.skipped.length,
+        rejected: result.rejected.length,
+        errors: result.errors.length
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
+  ingestCoordinateBatch,
   ingestNewsBatch,
   ingestTournamentBatch,
   requireAgentToken

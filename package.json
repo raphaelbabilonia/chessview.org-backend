@@ -18,6 +18,7 @@
     "smoke:broadcast": "node --test test/integration/broadcastController.test.js",
     "events:backfill": "node src/scripts/backfillEventMetadata.js",
     "events:coordinates": "node src/scripts/backfillEventCoordinates.js",
+    "events:coordinates:api": "node src/scripts/backfillEventCoordinatesViaApi.js",
     "tracking:audit": "node src/scripts/auditTrackingCoverage.js",
     "tracking:rollup": "node src/scripts/rollupTrackingAnalytics.js",
     "agent:discover-news": "node src/scripts/discoverNewsFeeds.js",

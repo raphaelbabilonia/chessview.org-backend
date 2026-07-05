@@ -190,6 +190,35 @@ describe("agentIngestController", () => {
     assert.equal(await Event.countDocuments({ dedupeKey: tournamentItem.dedupeKey }), 1);
   });
 
+  it("updates event coordinates through the private coordinate ingest endpoint", async () => {
+    const target = await Event.findOne({ slug: "chess-view-open-cuneo" }).lean();
+    const res = await postIngest(client, "/api/agent-ingest/coordinates", {
+      dryRun: false,
+      runId: "coordinate-backfill",
+      items: [
+        {
+          eventId: String(target._id),
+          title: target.title,
+          city: "Cuneo",
+          country: "Italy",
+          region: "Piemonte",
+          coordinates: [7.551, 44.384],
+          coordinateSource: "test-geocoder",
+          coordinateLabel: "Cuneo, Piemonte, Italy"
+        }
+      ]
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.meta.updated, 1);
+
+    const updated = await Event.findById(target._id).lean();
+    assert.equal(updated.region, "Piemonte");
+    assert.deepEqual(updated.location.coordinates, [7.551, 44.384]);
+    assert.equal(updated.location.coordinateSource, "test-geocoder");
+    assert.deepEqual(updated.metadata.logistics.coordinates, [7.551, 44.384]);
+  });
+
   it("publishes news idempotently and feeds GET /api/news", async () => {
     const first = await postIngest(client, "/api/agent-ingest/news", {
       dryRun: false,

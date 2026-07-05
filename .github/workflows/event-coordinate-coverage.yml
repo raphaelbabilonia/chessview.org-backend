@@ -47,6 +47,4 @@ jobs:
               exit 1
             fi
 
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js"
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js --geocode --apply --max-geocode=500 --delay-ms=1200"
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js --fail-on-missing"
+            run_as_site_user "cd '$TARGET_DIR' && CHESSVIEW_API_BASE_URL='https://api.chessview.org/api' node src/scripts/backfillEventCoordinatesViaApi.js --geocode --apply --max-geocode=500 --delay-ms=1200"

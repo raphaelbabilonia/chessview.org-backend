@@ -181,9 +181,6 @@ jobs:
 
             run_as_site_user "cd '$TARGET_DIR' && npm ci --omit=dev --no-audit"
             run_as_site_user "cd '$TARGET_DIR' && node src/scripts/checkSyntax.js"
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js"
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js --geocode --apply --max-geocode=500 --delay-ms=1200"
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/backfillEventCoordinates.js --fail-on-missing"
             run_as_site_user "cd '$TARGET_DIR' && pm2 startOrReload ecosystem.config.cjs --update-env"
             run_as_site_user "pm2 save || true"
 
@@ -215,6 +212,8 @@ jobs:
               fi
               exit 1
             fi
+
+            run_as_site_user "cd '$TARGET_DIR' && CHESSVIEW_API_BASE_URL='https://api.chessview.org/api' node src/scripts/backfillEventCoordinatesViaApi.js --geocode --apply --max-geocode=500 --delay-ms=1200"
 
             if id "$SITE_USER" >/dev/null 2>&1; then
               run_privileged chown -R "$SITE_USER:$SITE_USER" "$TARGET_DIR" "$BACKUP_ROOT"

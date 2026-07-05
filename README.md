@@ -149,6 +149,12 @@ npm run events:coordinates -- --geocode --apply
 
 Set `CHESSVIEW_GEOCODER_USER_AGENT`, `GEOCODING_MAX_PER_RUN`, and `GEOCODING_DELAY_MS` in production if the scheduled job uses geocoding. The default geocoding cap is 500 unique locations per run so a weekly pass can cover the current production tournament set while still throttling requests. The script stores resolved coordinates in `location.coordinates` and `metadata.logistics.coordinates` so the public Next.js country maps can render tournament dots.
 
+When direct database access is not the authoritative production path, use the private API-based coordinate backfill. It reads public events from `CHESSVIEW_API_BASE_URL`, resolves missing current locations, and posts coordinate-only updates through `/api/agent-ingest/coordinates`:
+
+```bash
+npm run events:coordinates:api -- --geocode --apply
+```
+
 ## News Discovery Workflow
 
 Use the local news automation to collect source-first article cards from RSS/Atom feeds and lightweight publisher metadata:
