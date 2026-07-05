@@ -53,6 +53,22 @@ const coordinateIsValid = ([longitude, latitude] = []) =>
   latitude >= -90 &&
   latitude <= 90;
 
+const locationCoordinatesFromEvent = (event = {}) => {
+  const candidates = [
+    event.location?.coordinates,
+    [event.location?.longitude, event.location?.latitude],
+    [event.location?.lng, event.location?.lat]
+  ];
+
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue;
+    const coordinates = candidate.map(Number);
+    if (coordinateIsValid(coordinates)) return coordinates;
+  }
+
+  return null;
+};
+
 const geocodeLocation = async (location, { userAgent }) => {
   const query = [location.city, location.region, cleanCountry(location.country)].filter(Boolean).join(", ");
   if (!query) return null;
@@ -168,11 +184,28 @@ const main = async () => {
   if (countryFilter) filter.country = new RegExp(`^${countryFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 
   const events = await Event.find(filter).sort({ country: 1, city: 1, startDate: 1, title: 1 });
-  const missingEvents = events.filter((event) => !coordinatesFromEvent(event));
+  const eventsNeedingLocation = events.filter((event) => !locationCoordinatesFromEvent(event));
   const missingByLocation = new Map();
+  const existingCoordinateEvents = [];
 
-  for (const event of missingEvents) {
+  for (const event of eventsNeedingLocation) {
     const location = locationFromEvent(event);
+    const existingCoordinates = coordinatesFromEvent(event);
+
+    if (existingCoordinates) {
+      existingCoordinateEvents.push({
+        event,
+        location,
+        resolved: {
+          ...location,
+          coordinates: existingCoordinates,
+          label: [location.city, location.region, location.country].filter(Boolean).join(", "),
+          source: "existing"
+        }
+      });
+      continue;
+    }
+
     const key = locationKey(location);
     if (!missingByLocation.has(key)) {
       missingByLocation.set(key, {
@@ -222,6 +255,31 @@ const main = async () => {
   const updates = [];
   const now = new Date();
 
+  for (const { event, location, resolved } of existingCoordinateEvents) {
+    updates.push({
+      location,
+      resolved: {
+        city: resolved.city,
+        country: resolved.country,
+        region: resolved.region,
+        coordinates: resolved.coordinates,
+        source: resolved.source
+      },
+      events: [
+        {
+          id: String(event._id),
+          title: event.title,
+          startDate: event.startDate
+        }
+      ]
+    });
+
+    if (apply) {
+      await applyCoordinatePatch(event, resolved, now);
+      appliedEvents += 1;
+    }
+  }
+
   for (const [key, resolved] of resolvedByKey) {
     const bucket = missingByLocation.get(key);
     if (!bucket) continue;
@@ -253,12 +311,14 @@ const main = async () => {
   console.log(
     JSON.stringify(
       {
-        ok: errors.length === 0,
+        ok: errors.length === 0 && unresolved.length === 0,
         mode: apply ? "apply" : "dry-run",
         geocoding: geocode ? "enabled" : "disabled",
         scanned: events.length,
-        missingEvents: missingEvents.length,
-        uniqueMissingLocations: missingByLocation.size,
+        eventsWithoutLocationCoordinates: eventsNeedingLocation.length,
+        missingEvents: unresolved.reduce((sum, item) => sum + item.count, 0),
+        uniqueMissingLocations: unresolved.length,
+        resolvedFromExistingEvents: existingCoordinateEvents.length,
         resolvedLocations: resolvedByKey.size,
         appliedEvents,
         geocodeCalls,
