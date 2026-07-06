@@ -10,6 +10,7 @@ const calculateStandings = require("../utils/calculateStandings");
 const { canManageEvent, canViewEvent, publicEventStatuses } = require("../utils/permissions");
 const { eventListItem, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
 const slugify = require("../utils/slugify");
+const { excludeSyntheticTestEventsQuery, isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
 
 const MAX_PUBLIC_LIMIT = 100;
 const MAX_TEXT_FILTER_LENGTH = 120;
@@ -128,6 +129,10 @@ const listEvents = async (req, res) => {
         : { organizer: req.user?._id }
       : { isPublic: true, status: { $in: publicEventStatuses } };
 
+  if (!mine) {
+    Object.assign(filter, excludeSyntheticTestEventsQuery());
+  }
+
   if (search) filter.title = literalRegex(search);
   if (city) filter.city = literalRegex(city);
   if (country) filter.country = literalRegex(country);
@@ -173,6 +178,9 @@ const getEvent = async (req, res) => {
     : { slug: req.params.id };
   const event = await Event.findOne(query).populate("organizer", "name email role").lean();
   if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+  if (isSyntheticTestEvent(event) && !canManageEvent(req.user, event)) {
+    return res.status(404).json({ success: false, message: "Event not found" });
+  }
   if (!canViewEvent(req.user, event)) {
     return res.status(403).json({ success: false, message: "This event is not public" });
   }

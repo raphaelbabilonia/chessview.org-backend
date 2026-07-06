@@ -124,6 +124,36 @@ describe("eventController", () => {
         false
       );
     });
+
+    it("does not expose synthetic local-density events to public lists", async () => {
+      const base = await Event.findOne({ slug: "chess-view-open-cuneo" }).lean();
+      await Event.create({
+        ...base,
+        _id: undefined,
+        title: "ChessView Local Density Test 082 - Turbigo rapid",
+        slug: "chessview-local-density-test-082-turbigo-rapid",
+        dedupeKey: "italy|turbigo|2026-07-07|local-density-082",
+        city: "Turbigo",
+        country: "Italy",
+        websiteUrl: "https://chessview.org/local-test/tournaments/turbigo-082",
+        startDate: daysFromNow(1),
+        endDate: daysFromNow(2),
+        status: "published",
+        isPublic: true,
+        source: {
+          name: "ChessView Local Test Data",
+          url: "https://chessview.org/local-test/tournaments/turbigo-082",
+          originalId: "local-density-082"
+        }
+      });
+
+      const res = await client.request("/api/events?includePast=true");
+      assert.equal(res.status, 200);
+      assert.equal(
+        res.body.data.some((event) => event.slug === "chessview-local-density-test-082-turbigo-rapid"),
+        false
+      );
+    });
   });
 
   describe("GET /api/events/:id", () => {
@@ -186,6 +216,32 @@ describe("eventController", () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       assert.equal(owner.status, 200, "owner still sees their draft");
+    });
+
+    it("404s synthetic local-density event details for anonymous callers", async () => {
+      const base = await Event.findOne({ slug: "chess-view-open-cuneo" }).lean();
+      await Event.create({
+        ...base,
+        _id: undefined,
+        title: "ChessView Local Density Test 082 - Turbigo rapid",
+        slug: "chessview-local-density-test-082-turbigo-rapid",
+        dedupeKey: "italy|turbigo|2026-07-07|local-density-082",
+        city: "Turbigo",
+        country: "Italy",
+        websiteUrl: "https://chessview.org/local-test/tournaments/turbigo-082",
+        startDate: daysFromNow(1),
+        endDate: daysFromNow(2),
+        status: "published",
+        isPublic: true,
+        source: {
+          name: "ChessView Local Test Data",
+          url: "https://chessview.org/local-test/tournaments/turbigo-082",
+          originalId: "local-density-082"
+        }
+      });
+
+      const anon = await client.request("/api/events/chessview-local-density-test-082-turbigo-rapid");
+      assert.equal(anon.status, 404);
     });
 
     it("sanitizes public event bundles for anonymous callers", async () => {
