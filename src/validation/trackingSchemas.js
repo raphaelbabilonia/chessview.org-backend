@@ -13,7 +13,24 @@ const eventNames = [
   "theme_change",
   "country_page_view",
   "source_page_view",
-  "github_source_click"
+  "github_source_click",
+  "agent_resource_click",
+  "collaboration_agents_click",
+  "collaboration_entry_click",
+  "collaboration_overview_click",
+  "collaboration_repository_click",
+  "collaboration_resource_click",
+  "coverage_country_select",
+  "coverage_event_open",
+  "coverage_filter_apply",
+  "coverage_filter_change",
+  "coverage_fullscreen_toggle",
+  "coverage_map_interaction",
+  "coverage_map_reset",
+  "coverage_map_zoom",
+  "coverage_marker_select",
+  "coverage_region_select",
+  "coverage_view_change"
 ];
 
 const routeTypes = [
@@ -21,8 +38,10 @@ const routeTypes = [
   "events",
   "event_detail",
   "news",
+  "coverage",
   "country",
   "source",
+  "collaboration",
   "tracking",
   "not_found",
   "unknown"
