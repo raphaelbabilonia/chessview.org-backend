@@ -144,6 +144,7 @@ const postCoordinateBatch = async ({ dryRun, items, runId }) => {
 
 const main = async () => {
   const apply = hasFlag("apply");
+  const failOnMissing = hasFlag("fail-on-missing");
   const geocode = hasFlag("geocode") || String(process.env.GEOCODING_ENABLED || "").toLowerCase() === "true";
   const activeFrom = argValue("active-from", todayIsoDate());
   const maxGeocode = parsePositiveInt(argValue("max-geocode", process.env.GEOCODING_MAX_PER_RUN || "500"), 500);
@@ -226,7 +227,7 @@ const main = async () => {
     )
   );
 
-  if ((apply && remainingMissing.length > 0) || unresolved.length > 0) {
+  if (failOnMissing && ((apply && remainingMissing.length > 0) || unresolved.length > 0)) {
     process.exitCode = 1;
   }
 };
