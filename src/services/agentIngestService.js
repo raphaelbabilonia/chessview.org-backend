@@ -5,6 +5,7 @@ const NewsItem = require("../models/NewsItem");
 const User = require("../models/User");
 const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const slugify = require("../utils/slugify");
+const { isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
 
 const TOURNAMENT_CONFIDENCE_MIN = 0.75;
 const NEWS_CONFIDENCE_MIN = 0.7;
@@ -375,6 +376,7 @@ const ingestTournaments = async ({ items, dryRun = false }) => {
   for (const item of items) {
     try {
       const reasons = ensureReady(item, { minConfidence: TOURNAMENT_CONFIDENCE_MIN, blockingFlags: COMMON_BLOCKING_FLAGS });
+      if (isSyntheticTestEvent(item)) reasons.push("synthetic/local test fixture is not allowed in production ingest");
       const query = tournamentQuery(item);
       if (!query) reasons.push("missing dedupe key, original id, and source URL");
       if (!item.title || !item.startDate || !item.country || !item.sourceName || !item.sourceUrl) {

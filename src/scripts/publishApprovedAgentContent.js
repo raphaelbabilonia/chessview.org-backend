@@ -4,6 +4,7 @@ require("dotenv").config({ quiet: true });
 const fs = require("fs");
 const path = require("path");
 const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
+const { isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
 
 const rootDir = path.resolve(__dirname, "../..");
 const TIME_CONTROL_TITLE_WORDS = new Set(["rapid", "blitz", "classical", "standard", "bullet"]);
@@ -254,6 +255,27 @@ const gateTournamentFamilies = (items) => {
   return { accepted, rejected };
 };
 
+const gateSyntheticTournaments = (items) => {
+  const accepted = [];
+  const rejected = [];
+
+  for (const item of items) {
+    if (isSyntheticTestEvent(item.data)) {
+      rejected.push({
+        title: item.data?.title || item.file,
+        dedupeKey: item.data?.dedupeKey || "",
+        file: item.file,
+        reasons: ["synthetic/local test fixture must not be published"]
+      });
+      continue;
+    }
+
+    accepted.push(item);
+  }
+
+  return { accepted, rejected };
+};
+
 const emptyPublishResult = (dryRun) => ({
   success: true,
   dryRun,
@@ -424,8 +446,10 @@ const main = async () => {
   const shouldPublishNews = args.domain === "all" || args.domain === "news";
 
   const tournamentFiles = shouldPublishTournaments ? readApprovedItems("Codex Tournaments/approved") : [];
-  const tournamentGate = gateTournamentFamilies(tournamentFiles);
+  const tournamentSyntheticGate = gateSyntheticTournaments(tournamentFiles);
+  const tournamentGate = gateTournamentFamilies(tournamentSyntheticGate.accepted);
   const tournaments = tournamentGate.accepted;
+  const tournamentRejected = tournamentSyntheticGate.rejected.concat(tournamentGate.rejected);
   const newsFiles = shouldPublishNews ? readApprovedItems("Codex News/approved") : [];
   const newsGate = await gateNewsImages(newsFiles);
   const news = newsGate.accepted;
@@ -434,7 +458,7 @@ const main = async () => {
   console.log(
     `Loaded approved JSON: tournaments=${tournamentFiles.length} news=${newsFiles.length}; publishable after local gates: tournaments=${tournaments.length} news=${news.length}`
   );
-  summarizeLocalRejected("tournaments", tournamentGate.rejected);
+  summarizeLocalRejected("tournaments", tournamentRejected);
   summarizeLocalRejected("news", newsGate.rejected);
   if (newsGate.repaired.length) console.log(`news: repaired_images=${newsGate.repaired.length}`);
 

@@ -182,6 +182,39 @@ describe("agentIngestController", () => {
     assert.equal(await Event.countDocuments({ dedupeKey: tournamentItem.dedupeKey }), 0);
   });
 
+  it("rejects synthetic local-density tournament fixtures without writing", async () => {
+    const syntheticFixture = {
+      ...tournamentItem,
+      title: "ChessView Local Density Test 082 - Turbigo rapid",
+      city: "Turbigo",
+      venue: "Turbigo Test Chess Hall 2",
+      sourceName: "ChessView Local Test Data",
+      sourceUrl: "https://chessview.org/local-test/tournaments/turbigo-082",
+      websiteUrl: "https://chessview.org/local-test/tournaments/turbigo-082",
+      originalId: "local-density-082",
+      dedupeKey: "italy|turbigo|2026-07-07|local-density-082",
+      approvedBy: "codex-local-map-density-fixture",
+      metadata: {
+        ...tournamentItem.metadata,
+        summary: "Synthetic local test tournament for dense ChessView map QA. Not production source data.",
+        sourceAudit: {
+          extractionStatus: "local-test-data"
+        }
+      }
+    };
+
+    const res = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "reject-local-density",
+      items: [syntheticFixture]
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.meta.rejected, 1);
+    assert.ok(res.body.rejected[0].reasons.includes("synthetic/local test fixture is not allowed in production ingest"));
+    assert.equal(await Event.countDocuments({ dedupeKey: syntheticFixture.dedupeKey }), 0);
+  });
+
   it("publishes tournaments idempotently and preserves source metadata", async () => {
     const first = await postIngest(client, "/api/agent-ingest/tournaments", {
       dryRun: false,
