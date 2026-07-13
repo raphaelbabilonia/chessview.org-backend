@@ -26,6 +26,8 @@ const eventNames = [
   "coverage_filter_change",
   "coverage_fullscreen_toggle",
   "coverage_map_interaction",
+  "coverage_map_renderer_change",
+  "coverage_map_renderer_fallback",
   "coverage_map_reset",
   "coverage_map_zoom",
   "coverage_marker_select",

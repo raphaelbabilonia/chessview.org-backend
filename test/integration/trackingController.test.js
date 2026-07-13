@@ -51,6 +51,28 @@ describe("trackingController", () => {
     assert.equal(res.status, 422);
   });
 
+  it("accepts coverage renderer lifecycle events", async () => {
+    const res = await client.json("POST", "/api/tracking/events", {
+      events: [
+        {
+          eventName: "coverage_map_renderer_change",
+          path: "/en/coverage",
+          routeType: "coverage",
+          metadata: { mode: "3d" }
+        },
+        {
+          eventName: "coverage_map_renderer_fallback",
+          path: "/en/coverage",
+          routeType: "coverage",
+          metadata: { reason: "low-fps" }
+        }
+      ]
+    });
+
+    assert.equal(res.status, 201);
+    assert.equal(res.body.data.accepted, 2);
+  });
+
   it("hides the dashboard behind the code and returns aggregates for the valid code", async () => {
     await client.json("POST", "/api/tracking/events", {
       events: [
