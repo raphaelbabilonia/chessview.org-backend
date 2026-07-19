@@ -1,6 +1,11 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { cleanCountry, resolveCuratedLocation } = require("../data/locationCoordinates");
+const {
+  coordinateIsValid,
+  countryCodeFor,
+  geocoderResultMatchesCountry
+} = require("../utils/geocodingSafety");
 
 const localEnvPath = path.resolve(process.cwd(), ".env.local");
 if (fs.existsSync(localEnvPath)) {
@@ -44,14 +49,6 @@ const sleep = (ms) => new Promise((resolve) => {
   setTimeout(resolve, ms);
 });
 
-const coordinateIsValid = ([longitude, latitude] = []) =>
-  Number.isFinite(Number(longitude)) &&
-  Number.isFinite(Number(latitude)) &&
-  longitude >= -180 &&
-  longitude <= 180 &&
-  latitude >= -90 &&
-  latitude <= 90;
-
 const hasLocationCoordinates = (event) => coordinateIsValid(event.location?.coordinates || []);
 
 const locationFromEvent = (event) => ({
@@ -60,18 +57,20 @@ const locationFromEvent = (event) => ({
   region: String(event.region || event.location?.region || "").trim()
 });
 
-const geocodeLocation = async (location, { userAgent }) => {
+const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
   const query = [location.city, location.region, cleanCountry(location.country)].filter(Boolean).join(", ");
   if (!query) return null;
 
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "1");
+  url.searchParams.set("limit", "5");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("accept-language", "en");
   url.searchParams.set("q", query);
+  const expectedCountryCode = countryCodeFor(location.country);
+  if (expectedCountryCode) url.searchParams.set("countrycodes", expectedCountryCode);
 
-  const response = await fetch(url, {
+  const response = await fetchImpl(url, {
     headers: {
       Accept: "application/json",
       "User-Agent": userAgent
@@ -83,10 +82,12 @@ const geocodeLocation = async (location, { userAgent }) => {
   }
 
   const results = await response.json();
-  const first = Array.isArray(results) ? results[0] : null;
-  if (!first) return null;
+  const match = Array.isArray(results)
+    ? results.find((result) => geocoderResultMatchesCountry(result, location.country))
+    : null;
+  if (!match) return null;
 
-  const coordinates = [Number(first.lon), Number(first.lat)];
+  const coordinates = [Number(match.lon), Number(match.lat)];
   if (!coordinateIsValid(coordinates)) return null;
 
   return {
@@ -94,8 +95,9 @@ const geocodeLocation = async (location, { userAgent }) => {
     country: cleanCountry(location.country),
     region: location.region || "",
     coordinates,
-    label: first.display_name || query,
-    source: "nominatim"
+    label: match.display_name || query,
+    source: "nominatim",
+    coordinateCountryCode: String(match.address?.country_code || "").toLowerCase()
   };
 };
 
@@ -108,19 +110,30 @@ const eventIdentity = (event) => ({
   title: event.title
 });
 
-const fetchEvents = async ({ activeFrom }) => {
-  const url = new URL(`${apiRoot()}/events`);
-  url.searchParams.set("activeFrom", activeFrom);
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": DEFAULT_GEOCODER_USER_AGENT
-    }
-  });
+const fetchEvents = async ({ activeFrom, baseUrl = apiRoot(), fetchImpl = fetch, maxPages = 100, pageSize = 100 }) => {
+  const events = [];
 
-  if (!response.ok) throw new Error(`Event list returned ${response.status}`);
-  const payload = await response.json();
-  return Array.isArray(payload.data) ? payload.data : [];
+  for (let page = 1; page <= maxPages; page += 1) {
+    const url = new URL(`${baseUrl}/events`);
+    url.searchParams.set("activeFrom", activeFrom);
+    url.searchParams.set("limit", String(pageSize));
+    url.searchParams.set("page", String(page));
+    const response = await fetchImpl(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": DEFAULT_GEOCODER_USER_AGENT
+      }
+    });
+
+    if (!response.ok) throw new Error(`Event list returned ${response.status} on page ${page}`);
+    const payload = await response.json();
+    if (Array.isArray(payload.data)) events.push(...payload.data);
+
+    if (!payload.meta?.hasNext) return events;
+    if (page === maxPages) throw new Error(`Event list is truncated after ${maxPages} pages`);
+  }
+
+  return events;
 };
 
 const postCoordinateBatch = async ({ dryRun, items, runId }) => {
@@ -152,29 +165,51 @@ const main = async () => {
   const batchSize = parsePositiveInt(argValue("batch-size", "50"), 50);
   const userAgent = process.env.CHESSVIEW_GEOCODER_USER_AGENT || DEFAULT_GEOCODER_USER_AGENT;
   const events = await fetchEvents({ activeFrom });
-  const missingEvents = events.filter((event) => !hasLocationCoordinates(event));
+  const eventId = argValue("event-id");
+  const targetEvents = eventId
+    ? events.filter((event) => String(event._id || "") === eventId || String(event.slug || "") === eventId)
+    : events;
+  const missingEvents = targetEvents.filter((event) => !hasLocationCoordinates(event));
   const updates = [];
   const unresolved = [];
+  const resolutionCache = new Map();
   let geocodeCalls = 0;
 
   for (const event of missingEvents) {
     const location = locationFromEvent(event);
-    const curated = resolveCuratedLocation(location);
-    let resolved = curated
-      ? { ...curated, label: [curated.city, curated.region, curated.country].filter(Boolean).join(", "), source: "curated" }
-      : null;
+    const locationKey = [location.city, location.region, location.country]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .join("|");
+    let cachedResolution = resolutionCache.get(locationKey);
 
-    if (!resolved && geocode && geocodeCalls < maxGeocode && location.city && location.country) {
-      if (geocodeCalls > 0) await sleep(delayMs);
-      geocodeCalls += 1;
-      resolved = await geocodeLocation(location, { userAgent });
+    if (!cachedResolution) {
+      const curated = resolveCuratedLocation(location);
+      let resolved = curated
+        ? { ...curated, label: [curated.city, curated.region, curated.country].filter(Boolean).join(", "), source: "curated" }
+        : null;
+      let reason = "not-found";
+
+      if (!resolved && geocode && geocodeCalls < maxGeocode && location.city && location.country) {
+        if (geocodeCalls > 0) await sleep(delayMs);
+        geocodeCalls += 1;
+        resolved = await geocodeLocation(location, { userAgent });
+      } else if (!resolved && !geocode) {
+        reason = "geocoding-disabled";
+      } else if (!resolved && geocodeCalls >= maxGeocode) {
+        reason = "geocode-limit-reached";
+      }
+
+      cachedResolution = { reason, resolved };
+      resolutionCache.set(locationKey, cachedResolution);
     }
+
+    const { reason, resolved } = cachedResolution;
 
     if (!resolved) {
       unresolved.push({
         ...location,
         title: event.title,
-        reason: !geocode ? "geocoding-disabled" : geocodeCalls >= maxGeocode ? "geocode-limit-reached" : "not-found"
+        reason
       });
       continue;
     }
@@ -186,7 +221,8 @@ const main = async () => {
       region: location.region || resolved.region || "",
       coordinates: resolved.coordinates,
       coordinateLabel: resolved.label,
-      coordinateSource: resolved.source
+      coordinateSource: resolved.source,
+      coordinateCountryCode: resolved.coordinateCountryCode || countryCodeFor(resolved.country || location.country)
     });
   }
 
@@ -203,7 +239,10 @@ const main = async () => {
   }
 
   const afterEvents = apply ? await fetchEvents({ activeFrom }) : events;
-  const remainingMissing = afterEvents.filter((event) => !hasLocationCoordinates(event));
+  const afterTargetEvents = eventId
+    ? afterEvents.filter((event) => String(event._id || "") === eventId || String(event.slug || "") === eventId)
+    : afterEvents;
+  const remainingMissing = afterTargetEvents.filter((event) => !hasLocationCoordinates(event));
 
   console.log(
     JSON.stringify(
@@ -213,6 +252,7 @@ const main = async () => {
         geocoding: geocode ? "enabled" : "disabled",
         activeFrom,
         scanned: events.length,
+        targeted: targetEvents.length,
         missingBefore: missingEvents.length,
         preparedUpdates: updates.length,
         postedBatches: responses.length,
@@ -232,7 +272,16 @@ const main = async () => {
   }
 };
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  fetchEvents,
+  geocodeLocation,
+  hasLocationCoordinates,
+  locationFromEvent
+};

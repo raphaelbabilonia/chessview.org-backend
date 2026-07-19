@@ -1,5 +1,6 @@
 const Event = require("../models/Event");
 const { cleanCountry, locationFromEvent } = require("../data/locationCoordinates");
+const { countryCodeFor } = require("../utils/geocodingSafety");
 
 const coordinateIsValid = ([longitude, latitude] = []) =>
   Number.isFinite(Number(longitude)) &&
@@ -24,6 +25,15 @@ const cleanCoordinates = (value) => {
   if (!Array.isArray(value)) return null;
   const coordinates = value.map(Number);
   return coordinateIsValid(coordinates) ? coordinates : null;
+};
+
+const coordinateCountryMatches = (event, item) => {
+  const suppliedCode = String(item.coordinateCountryCode || "").trim().toLowerCase();
+  if (!suppliedCode) return true;
+
+  const country = cleanCountry(item.country || locationFromEvent(event).country);
+  const expectedCode = countryCodeFor(country);
+  return !expectedCode || suppliedCode === expectedCode;
 };
 
 const coordinatePatch = (event, item) => {
@@ -111,6 +121,10 @@ const applyEventCoordinateUpdates = async ({ items, dryRun = false }) => {
       const event = await Event.findOne(query);
       if (!event) {
         result.skipped.push({ title: item.title || "", reason: "event-not-found" });
+        continue;
+      }
+      if (!coordinateCountryMatches(event, item)) {
+        result.rejected.push({ title: item.title || event.title, reason: "coordinate-country-mismatch" });
         continue;
       }
 

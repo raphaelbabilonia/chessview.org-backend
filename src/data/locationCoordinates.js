@@ -35,6 +35,7 @@ const locationRows = [
   ["Amsterdam", "Netherlands", "Noord-Holland", [4.9041, 52.3676]],
   ["Azkoitia", "Spain", "Basque Country", [-2.311, 43.177]],
   ["Badalona", "Spain", "Catalonia", [2.245, 41.45]],
+  ["Barcelona", "Spain", "Catalonia", [2.177073, 41.3825802]],
   ["Bia?ystok", "Poland", "Podlaskie", [23.1688, 53.1325]],
   ["Bialystok", "Poland", "Podlaskie", [23.1688, 53.1325]],
   ["Białystok", "Poland", "Podlaskie", [23.1688, 53.1325]],
@@ -192,15 +193,25 @@ const locationFromEvent = (event = {}) => {
   };
 };
 
-const resolveCuratedLocation = ({ city, country }) => {
-  const cleanCity = normalizeText(city);
-  if (!cleanCity) return null;
+const cityLookupKeys = (city) => {
+  const value = String(city || "").trim();
+  const leadingPlace = value.match(/^([^.,;]{3,60})\.\s+\S/)?.[1]?.trim();
+  return [...new Set([value, leadingPlace].filter(Boolean).map(normalizeText))];
+};
 
-  return (
-    locationByCityAndCountry.get(`${cleanCity}|${normalizeText(cleanCountry(country))}`) ||
-    locationByCity.get(cleanCity) ||
-    null
-  );
+const resolveCuratedLocation = ({ city, country }) => {
+  const cityKeys = cityLookupKeys(city);
+  if (!cityKeys.length) return null;
+
+  const normalizedCountry = normalizeText(cleanCountry(country));
+  const scoped = cityKeys
+    .map((cityKey) => locationByCityAndCountry.get(`${cityKey}|${normalizedCountry}`))
+    .find(Boolean);
+  if (scoped) return scoped;
+
+  const unscoped = cityKeys.map((cityKey) => locationByCity.get(cityKey)).find(Boolean);
+  if (!unscoped || (normalizedCountry && normalizeText(cleanCountry(unscoped.country)) !== normalizedCountry)) return null;
+  return unscoped;
 };
 
 module.exports = {
