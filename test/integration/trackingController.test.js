@@ -65,12 +65,30 @@ describe("trackingController", () => {
           path: "/en/coverage",
           routeType: "coverage",
           metadata: { reason: "low-fps" }
+        },
+        {
+          eventName: "coverage_map_3d_error",
+          path: "/en/maps",
+          routeType: "coverage",
+          metadata: { reason: "init-error" }
+        },
+        {
+          eventName: "coverage_map_quality_reduce",
+          path: "/en/maps",
+          routeType: "coverage",
+          metadata: { reason: "low-fps" }
+        },
+        {
+          eventName: "coverage_map_3d_retry",
+          path: "/en/maps",
+          routeType: "coverage",
+          metadata: { reason: "manual" }
         }
       ]
     });
 
     assert.equal(res.status, 201);
-    assert.equal(res.body.data.accepted, 2);
+    assert.equal(res.body.data.accepted, 5);
   });
 
   it("hides the dashboard behind the code and returns aggregates for the valid code", async () => {
