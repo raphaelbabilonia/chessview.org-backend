@@ -5,9 +5,9 @@ const fs = require("fs");
 const path = require("path");
 const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const { isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
+const { canonicalFamilySignature, normalizeText } = require("../utils/tournamentIdentity");
 
 const rootDir = path.resolve(__dirname, "../..");
-const TIME_CONTROL_TITLE_WORDS = new Set(["rapid", "blitz", "classical", "standard", "bullet"]);
 const TIME_CONTROL_PRIORITY = {
   mixed: 5,
   standard: 4,
@@ -20,11 +20,15 @@ const TIME_CONTROL_PRIORITY = {
 const MAX_AGENT_INGEST_BATCH_BYTES = Number(process.env.CHESSVIEW_AGENT_INGEST_MAX_BATCH_BYTES || 750000);
 const IMAGE_REPAIR_TIMEOUT_MS = Number(process.env.CHESSVIEW_NEWS_IMAGE_REPAIR_TIMEOUT_MS || 12000);
 const USER_AGENT = "ChessViewNewsBridge/0.1 (+https://chessview.org; image metadata repair)";
+const PUBLISH_LOCK_PATH = path.join(rootDir, "Codex Tournaments", "state", "publisher.lock");
+const PUBLISH_LOCK_STALE_MS = Number(process.env.CHESSVIEW_AGENT_PUBLISH_LOCK_STALE_MS || 2 * 60 * 60 * 1000);
 
 const parseArgs = (argv) => {
   const args = {
     dryRun: true,
-    domain: "all"
+    domain: "all",
+    inputManifest: "",
+    runId: ""
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -36,13 +40,73 @@ const parseArgs = (argv) => {
       index += 1;
     }
     if (arg.startsWith("--domain=")) args.domain = arg.slice("--domain=".length);
+    if (arg === "--input-manifest") {
+      args.inputManifest = argv[index + 1] || "";
+      index += 1;
+    }
+    if (arg.startsWith("--input-manifest=")) args.inputManifest = arg.slice("--input-manifest=".length);
+    if (arg === "--run-id") {
+      args.runId = argv[index + 1] || "";
+      index += 1;
+    }
+    if (arg.startsWith("--run-id=")) args.runId = arg.slice("--run-id=".length);
   }
 
   if (!["all", "news", "tournaments"].includes(args.domain)) {
     throw new Error("--domain must be one of: all, news, tournaments");
   }
+  if (args.inputManifest && args.domain !== "tournaments") {
+    throw new Error("--input-manifest requires --domain tournaments");
+  }
 
   return args;
+};
+
+const isWithin = (parent, child) => {
+  const relative = path.relative(parent, child);
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+};
+
+const readManifestItems = (manifestPath) => {
+  const absoluteManifest = path.resolve(rootDir, manifestPath);
+  if (!isWithin(rootDir, absoluteManifest)) throw new Error("Input manifest must be inside the backend workspace");
+  if (!fs.existsSync(absoluteManifest)) throw new Error(`Input manifest not found: ${manifestPath}`);
+  const manifest = JSON.parse(fs.readFileSync(absoluteManifest, "utf8"));
+  const approvedRoot = path.resolve(rootDir, "Codex Tournaments", "approved");
+  if (!Array.isArray(manifest.approvedItems)) throw new Error("Input manifest must contain approvedItems[]");
+  return manifest.approvedItems.map((entry) => {
+    const relativeFile = typeof entry === "string" ? entry : entry?.file;
+    if (!relativeFile) throw new Error("Each manifest approvedItems entry must be a file path");
+    const file = path.resolve(rootDir, relativeFile);
+    if (!isWithin(approvedRoot, file) || path.extname(file).toLowerCase() !== ".json") {
+      throw new Error(`Manifest item is outside Codex Tournaments/approved: ${relativeFile}`);
+    }
+    return { file: path.relative(rootDir, file), data: JSON.parse(fs.readFileSync(file, "utf8")) };
+  });
+};
+
+const acquirePublishLock = () => {
+  fs.mkdirSync(path.dirname(PUBLISH_LOCK_PATH), { recursive: true });
+  try {
+    const fd = fs.openSync(PUBLISH_LOCK_PATH, "wx");
+    fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() }, null, 2));
+    fs.closeSync(fd);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    const stat = fs.statSync(PUBLISH_LOCK_PATH);
+    if (Date.now() - stat.mtimeMs <= PUBLISH_LOCK_STALE_MS) {
+      throw new Error(`Another publisher owns the active lock: ${path.relative(rootDir, PUBLISH_LOCK_PATH)}`);
+    }
+    fs.unlinkSync(PUBLISH_LOCK_PATH);
+    return acquirePublishLock();
+  }
+  return () => {
+    try {
+      fs.unlinkSync(PUBLISH_LOCK_PATH);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  };
 };
 
 const listJsonFiles = (directory) => {
@@ -67,32 +131,6 @@ const apiRoot = () => {
   const base = process.env.CHESSVIEW_API_BASE_URL;
   if (!base) throw new Error("Missing CHESSVIEW_API_BASE_URL");
   return base.replace(/\/+$/, "");
-};
-
-const normalizeText = (value) =>
-  String(value || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-
-const datePart = (value) => {
-  if (!value) return "";
-  const text = String(value);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? text.slice(0, 10) : date.toISOString().slice(0, 10);
-};
-
-const originFromUrl = (value) => {
-  try {
-    return new URL(value).origin;
-  } catch {
-    return "";
-  }
 };
 
 const decodeEntities = (value = "") => {
@@ -183,24 +221,7 @@ const fetchArticleImage = async (url) => {
   }
 };
 
-const titleFamily = (title) =>
-  normalizeText(title)
-    .split(" ")
-    .filter((word) => !TIME_CONTROL_TITLE_WORDS.has(word))
-    .join(" ");
-
-const tournamentFamilyKey = (item) => {
-  const officialSite = originFromUrl(item.websiteUrl || item.registrationUrl || item.sourceUrl);
-  return [
-    normalizeText(item.country),
-    normalizeText(item.city),
-    datePart(item.startDate),
-    datePart(item.endDate || item.startDate),
-    normalizeText(item.venue),
-    officialSite,
-    titleFamily(item.title)
-  ].join("|");
-};
+const tournamentFamilyKey = (item) => canonicalFamilySignature(item);
 
 const tournamentPriority = (item) => {
   const timeControl = normalizeText(item.timeControl);
@@ -281,10 +302,11 @@ const emptyPublishResult = (dryRun) => ({
   dryRun,
   created: [],
   updated: [],
+  merged: [],
   skipped: [],
   rejected: [],
   errors: [],
-  meta: { created: 0, updated: 0, skipped: 0, rejected: 0, errors: 0 }
+  meta: { created: 0, updated: 0, merged: 0, skipped: 0, rejected: 0, errors: 0 }
 });
 
 const requestSizeBytes = ({ dryRun, runId, items }) =>
@@ -312,7 +334,7 @@ const splitIntoRequestBatches = ({ dryRun, runId, items }) => {
 const combinePublishResults = (dryRun, results) => {
   const combined = emptyPublishResult(dryRun);
   for (const result of results) {
-    for (const key of ["created", "updated", "skipped", "rejected", "errors"]) {
+    for (const key of ["created", "updated", "merged", "skipped", "rejected", "errors"]) {
       combined[key].push(...(result[key] || []));
     }
   }
@@ -320,6 +342,7 @@ const combinePublishResults = (dryRun, results) => {
   combined.meta = {
     created: combined.created.length,
     updated: combined.updated.length,
+    merged: combined.merged.length,
     skipped: combined.skipped.length,
     rejected: combined.rejected.length,
     errors: combined.errors.length
@@ -373,7 +396,7 @@ const publishBatch = async ({ endpoint, token, dryRun, runId, items }) => {
 const summarize = (label, result) => {
   const meta = result.meta || {};
   console.log(
-    `${label}: created=${meta.created || 0} updated=${meta.updated || 0} skipped=${meta.skipped || 0} rejected=${meta.rejected || 0} errors=${meta.errors || 0}`
+    `${label}: created=${meta.created || 0} updated=${meta.updated || 0} merged=${meta.merged || 0} skipped=${meta.skipped || 0} rejected=${meta.rejected || 0} errors=${meta.errors || 0}`
   );
   if (Array.isArray(result.rejected) && result.rejected.length) {
     for (const rejected of result.rejected) {
@@ -441,11 +464,13 @@ const main = async () => {
   const token = process.env.AGENT_PUBLISH_TOKEN || process.env.CHESSVIEW_AGENT_PUBLISH_TOKEN;
   if (!token) throw new Error("Missing AGENT_PUBLISH_TOKEN or CHESSVIEW_AGENT_PUBLISH_TOKEN");
 
-  const runId = `local-agent-publish-${new Date().toISOString()}`;
+  const runId = args.runId || `local-agent-publish-${new Date().toISOString()}`;
   const shouldPublishTournaments = args.domain === "all" || args.domain === "tournaments";
   const shouldPublishNews = args.domain === "all" || args.domain === "news";
 
-  const tournamentFiles = shouldPublishTournaments ? readApprovedItems("Codex Tournaments/approved") : [];
+  const tournamentFiles = shouldPublishTournaments
+    ? (args.inputManifest ? readManifestItems(args.inputManifest) : readApprovedItems("Codex Tournaments/approved"))
+    : [];
   const tournamentSyntheticGate = gateSyntheticTournaments(tournamentFiles);
   const tournamentGate = gateTournamentFamilies(tournamentSyntheticGate.accepted);
   const tournaments = tournamentGate.accepted;
@@ -494,7 +519,16 @@ const main = async () => {
   if (hasBlockingErrors) process.exitCode = 1;
 };
 
-main().catch((error) => {
+const runWithLock = async () => {
+  const release = acquirePublishLock();
+  try {
+    await main();
+  } finally {
+    release();
+  }
+};
+
+runWithLock().catch((error) => {
   console.error(`Publish failed: ${error.message}`);
   process.exit(1);
 });

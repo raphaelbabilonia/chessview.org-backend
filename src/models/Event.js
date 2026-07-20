@@ -1,5 +1,17 @@
 const mongoose = require("mongoose");
 
+const eventSourceRefSchema = new mongoose.Schema(
+  {
+    sourceKey: { type: String, required: true, trim: true },
+    name: { type: String, default: "" },
+    url: { type: String, default: "" },
+    originalId: { type: String, default: "" },
+    lastCheckedAt: { type: Date, default: null },
+    contentHash: { type: String, default: "" }
+  },
+  { _id: false }
+);
+
 const eventLocationSchema = new mongoose.Schema(
   {
     city: { type: String, default: "" },
@@ -25,6 +37,9 @@ const eventSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     slug: { type: String, required: true, trim: true, index: true },
     dedupeKey: { type: String, default: "", index: true },
+    canonicalFamilyKey: { type: String, default: undefined },
+    sourceKeys: { type: [String], default: undefined },
+    sourceRefs: { type: [eventSourceRefSchema], default: undefined },
     description: { type: String, default: "" },
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     city: { type: String, required: true, trim: true },

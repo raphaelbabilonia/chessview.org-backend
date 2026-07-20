@@ -535,8 +535,15 @@ const normalizeDiscoveredItem = (source, rawItem, capturedAt) => {
     publishStatus: "ready"
   };
 
-  if (!item.author) item.qualityFlags.push("missing_author");
-  if (!item.publishedAt) item.qualityFlags.push("missing_published_at");
+  if (!item.author) {
+    delete item.author;
+    item.qualityFlags.push("missing_author");
+  }
+  if (!item.publishedAt) {
+    delete item.publishedAt;
+    item.qualityFlags.push("missing_published_at");
+  }
+  if (!item.updatedAt) delete item.updatedAt;
   item.contentHash = itemHash(item);
 
   return item;
@@ -594,9 +601,23 @@ const rememberFingerprint = (item, fingerprints) => {
 };
 
 const validateCandidate = (item, args, fingerprints) => {
+  const blockingApprovalFlags = new Set([
+    "paywall_detected",
+    "primary_source_missing",
+    "discovery_only_source",
+    "summary_needs_review",
+    "legal_review_required",
+    "low_confidence",
+    "duplicate_possible",
+    "source_requires_manual_check"
+  ]);
   if (!item.title || !item.sourceUrl || !item.canonicalUrl) return "missing title or source URL";
   if (isStale(item.publishedAt, args.staleDays)) return `older than ${args.staleDays} days`;
   if (!hasRequiredNewsImage(item.imageUrl)) return "missing publisher image";
+  if (args.approve && item.confidence < 0.8) return "confidence below approval threshold";
+  if (args.approve && item.qualityFlags?.some((flag) => blockingApprovalFlags.has(flag))) {
+    return "blocking quality flag";
+  }
   if (/subscribe|subscription|paywall|sign in to continue/i.test(`${item.summary} ${item.title}`)) return "possible paywall";
   return isDuplicate(item, fingerprints);
 };
@@ -896,10 +917,14 @@ const main = async () => {
         const candidateRelative = toPosix(path.relative(workspacePath(workspace), candidatePath));
         const approvedPath = path.join(approvedDir, `${safeFileBase}.json`);
         const approvedRelative = toPosix(path.relative(workspacePath(workspace), approvedPath));
+        const candidateItem = { ...item };
+        delete candidateItem.approvedAt;
+        delete candidateItem.approvedBy;
+        delete candidateItem.publishStatus;
 
         if (!args.dryRun) {
           fs.writeFileSync(evidencePath, `${evidenceMarkdown(item, source, rawItem.description)}\n`, "utf8");
-          writeJson(candidatePath, item);
+          writeJson(candidatePath, candidateItem);
           if (args.approve) writeJson(approvedPath, item);
           updateSeenState(workspace, item, args.approve ? "approved" : "candidate", args.approve ? approvedRelative : candidateRelative);
           updateDedupeState(workspace, item, args.approve ? approvedRelative : candidateRelative);

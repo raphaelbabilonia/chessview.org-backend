@@ -6,6 +6,15 @@ const User = require("../models/User");
 const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const slugify = require("../utils/slugify");
 const { isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
+const {
+  canonicalFamilyKey,
+  escapeRegex,
+  familySimilarity,
+  normalizeText,
+  normalizeUrl,
+  tournamentContentHash,
+  tournamentSourceKeys
+} = require("../utils/tournamentIdentity");
 
 const TOURNAMENT_CONFIDENCE_MIN = 0.75;
 const NEWS_CONFIDENCE_MIN = 0.7;
@@ -27,6 +36,8 @@ const NEWS_BLOCKING_FLAGS = new Set([
 ]);
 
 const allowedEventRatingTypes = new Set(["FIDE", "national", "unrated"]);
+const allowedRegistrationStatuses = new Set(["closed", "open", "full"]);
+const allowedLifecycleStatuses = new Set(["scheduled", "postponed", "cancelled", "completed"]);
 const MAX_METADATA_DEPTH = 6;
 const MAX_METADATA_ARRAY_LENGTH = 120;
 const MAX_METADATA_STRING_LENGTH = 2500;
@@ -106,8 +117,11 @@ const normalizeTournamentMetadata = (item) => {
   if (!isPlainObject(metadata) || Object.keys(metadata).length === 0) return {};
 
   return {
+    schemaVersion: metadata.schemaVersion === 2 ? 2 : 1,
     enrichmentStatus: metadata.enrichmentStatus || "partial",
     summary: metadata.summary || "",
+    lifecycle: isPlainObject(metadata.lifecycle) ? metadata.lifecycle : {},
+    classification: isPlainObject(metadata.classification) ? metadata.classification : {},
     format: isPlainObject(metadata.format) ? metadata.format : {},
     registration: isPlainObject(metadata.registration) ? metadata.registration : {},
     logistics: isPlainObject(metadata.logistics) ? metadata.logistics : {},
@@ -192,11 +206,226 @@ const makeUniqueNewsSlug = async (title, requestedSlug, existingId = null) => {
 
 const tournamentQuery = (item) => {
   const clauses = [];
+  if (item.sourceKeys?.length) clauses.push({ sourceKeys: { $in: item.sourceKeys } });
   if (item.dedupeKey) clauses.push({ dedupeKey: item.dedupeKey });
-  if (item.originalId) clauses.push({ "source.originalId": item.originalId });
+  if (item.originalId && item.sourceName) {
+    clauses.push({
+      "source.name": { $regex: `^${escapeRegex(item.sourceName)}$`, $options: "i" },
+      "source.originalId": item.originalId
+    });
+  }
   if (item.sourceUrl) clauses.push({ "source.url": item.sourceUrl });
   if (clauses.length === 0) return null;
   return { $or: clauses };
+};
+
+const mergeTournamentMetadata = (existingValue, incomingValue, { preferIncoming = true } = {}) => {
+  const existing = isPlainObject(existingValue) ? existingValue : {};
+  const incoming = isPlainObject(incomingValue) ? incomingValue : {};
+  const populated = (value) =>
+    value !== "" && value !== null && value !== undefined &&
+    (!Array.isArray(value) || value.length > 0) &&
+    (!isPlainObject(value) || Object.keys(value).length > 0);
+  const stableKey = (value) => {
+    if (!isPlainObject(value)) return JSON.stringify(value);
+    return JSON.stringify(
+      Object.keys(value)
+        .sort()
+        .reduce((result, key) => {
+          result[key] = value[key];
+          return result;
+        }, {})
+    );
+  };
+  const mergeValue = (left, right) => {
+    if (Array.isArray(left) || Array.isArray(right)) {
+      const seen = new Set();
+      return [...(Array.isArray(left) ? left : []), ...(Array.isArray(right) ? right : [])].filter((value) => {
+        const key = stableKey(value);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+    if (isPlainObject(left) || isPlainObject(right)) {
+      const leftObject = isPlainObject(left) ? left : {};
+      const rightObject = isPlainObject(right) ? right : {};
+      return [...new Set([...Object.keys(leftObject), ...Object.keys(rightObject)])].reduce((result, key) => {
+        result[key] = mergeValue(leftObject[key], rightObject[key]);
+        return result;
+      }, {});
+    }
+    if (preferIncoming && populated(right)) return right;
+    if (populated(left)) return left;
+    return right;
+  };
+
+  return mergeValue(existing, incoming);
+};
+
+const sourceAuthority = (item = {}) => {
+  const declared = normalizeText(item.metadata?.sourceAudit?.authority || item.metadata?.sourceAudit?.sourceRole);
+  const name = normalizeText(item.sourceName || item.source?.name);
+  if (declared === "organizer" || declared === "official organizer") return 600;
+  if (declared === "federation" || declared === "official federation") return 500;
+  if (declared === "platform" || declared === "official tournament platform") return 400;
+  if (declared === "rating calendar" || declared === "official rating calendar") return 300;
+  if (declared === "broadcast" || declared === "official broadcast") return 200;
+  if (declared === "aggregator" || declared === "benchmark") return 100;
+  if (/fide|federation|federscacchi|schachbund|english chess|us chess|echecs|schaakbond/.test(name)) return 500;
+  if (/vesus|chessreg|chess results|info64|chessarbiter|tornelo|chessmanager/.test(name)) return 400;
+  if (/lichess|broadcast/.test(name)) return 200;
+  return 250;
+};
+
+const normalizeTournamentInput = (item = {}) => {
+  const normalized = {
+    ...item,
+    title: trimString(item.title),
+    sourceName: trimString(item.sourceName),
+    sourceUrl: normalizeUrl(item.sourceUrl),
+    originalId: trimString(item.originalId),
+    city: trimString(item.city),
+    country: trimString(item.country),
+    venue: trimString(item.venue || item.venueName),
+    startDate: item.startDate,
+    endDate: item.endDate || item.startDate,
+    registrationStatus: trimString(item.registrationStatus || item.metadata?.registration?.status),
+    lastCheckedAt: asDate(item.lastCheckedAt, new Date())
+  };
+  normalized.sourceKeys = [...new Set([
+    ...tournamentSourceKeys(normalized),
+    ...normalizeArray(item.sourceRefs).map((ref) => trimString(ref?.sourceKey)).filter(Boolean)
+  ])];
+  normalized.canonicalFamilyKey = canonicalFamilyKey(normalized);
+  normalized.contentHash = trimString(item.contentHash) || tournamentContentHash(normalized);
+  return normalized;
+};
+
+const sourceRefFor = (item) => ({
+  sourceKey: tournamentSourceKeys({
+    sourceName: item.sourceName,
+    sourceUrl: item.sourceUrl,
+    originalId: item.originalId
+  })[0],
+  name: item.sourceName,
+  url: item.sourceUrl,
+  originalId: item.originalId,
+  lastCheckedAt: item.lastCheckedAt,
+  contentHash: item.contentHash
+});
+
+const incomingSourceRefs = (item) => {
+  const supplied = normalizeArray(item.sourceRefs).map((ref) => {
+    const sourceKey = trimString(ref?.sourceKey) || tournamentSourceKeys({
+      sourceName: ref?.name,
+      sourceUrl: ref?.url,
+      originalId: ref?.originalId
+    })[0];
+    return {
+      sourceKey,
+      name: trimString(ref?.name),
+      url: normalizeUrl(ref?.url),
+      originalId: trimString(ref?.originalId),
+      lastCheckedAt: asDate(ref?.lastCheckedAt, item.lastCheckedAt),
+      contentHash: trimString(ref?.contentHash)
+    };
+  }).filter((ref) => ref.sourceKey);
+  const primarySourceKey = tournamentSourceKeys({
+    sourceName: item.sourceName,
+    sourceUrl: item.sourceUrl,
+    originalId: item.originalId
+  })[0];
+  if (!supplied.some((ref) => ref.sourceKey === primarySourceKey)) supplied.push(sourceRefFor(item));
+  return supplied;
+};
+
+const existingSourceRefs = (existing) => {
+  const refs = normalizeArray(existing?.sourceRefs).map((ref) => ({
+    sourceKey: ref.sourceKey,
+    name: ref.name || "",
+    url: ref.url || "",
+    originalId: ref.originalId || "",
+    lastCheckedAt: ref.lastCheckedAt || null,
+    contentHash: ref.contentHash || ""
+  }));
+  if (!refs.length && existing?.source?.name && (existing.source.originalId || existing.source.url)) {
+    const legacy = {
+      sourceName: existing.source.name,
+      sourceUrl: existing.source.url,
+      originalId: existing.source.originalId
+    };
+    const keys = tournamentSourceKeys(legacy);
+    if (keys.length) {
+      refs.push({
+        sourceKey: keys[0],
+        name: legacy.sourceName,
+        url: normalizeUrl(legacy.sourceUrl),
+        originalId: legacy.originalId,
+        lastCheckedAt: existing.source.lastCheckedAt || null,
+        contentHash: ""
+      });
+    }
+  }
+  return refs;
+};
+
+const mergeSourceRefs = (existing, item) => {
+  const refs = existingSourceRefs(existing);
+  for (const incoming of incomingSourceRefs(item)) {
+    const index = refs.findIndex(
+      (ref) => ref.sourceKey === incoming.sourceKey ||
+        (normalizeText(ref.name) === normalizeText(incoming.name) &&
+          ((ref.originalId && ref.originalId === incoming.originalId) ||
+            (normalizeUrl(ref.url) && normalizeUrl(ref.url) === normalizeUrl(incoming.url))))
+    );
+    if (index >= 0) refs[index] = { ...refs[index], ...incoming };
+    else refs.push(incoming);
+  }
+  return refs;
+};
+
+const hasMatchingSourceHash = (existing, item) =>
+  existingSourceRefs(existing).some(
+    (ref) => item.sourceKeys.includes(ref.sourceKey) && ref.contentHash && ref.contentHash === item.contentHash
+  );
+
+const hasMatchingSource = (existing, item) => {
+  const storedKeys = new Set(normalizeArray(existing?.sourceKeys));
+  if (item.sourceKeys.some((key) => storedKeys.has(key))) return true;
+  return normalizeText(existing?.source?.name) === normalizeText(item.sourceName) &&
+    ((item.originalId && existing?.source?.originalId === item.originalId) ||
+      (item.sourceUrl && normalizeUrl(existing?.source?.url) === item.sourceUrl));
+};
+
+const findTournamentMatch = async (item) => {
+  const directQuery = tournamentQuery(item);
+  const direct = directQuery ? await Event.findOne(directQuery) : null;
+  if (direct) return { existing: direct, match: hasMatchingSource(direct, item) ? "source" : "family" };
+
+  if (item.canonicalFamilyKey) {
+    const familyMatches = await Event.find({ canonicalFamilyKey: item.canonicalFamilyKey }).limit(2);
+    if (familyMatches.length === 1) return { existing: familyMatches[0], match: "family" };
+    if (familyMatches.length > 1) return { ambiguous: familyMatches, match: "ambiguous" };
+  }
+
+  const start = asDate(item.startDate);
+  if (!start) return { existing: null, match: "none" };
+  const nextDay = new Date(start);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const candidates = await Event.find({
+    startDate: { $gte: start, $lt: nextDay },
+    ...(item.country ? { country: { $regex: `^${escapeRegex(item.country)}$`, $options: "i" } } : {})
+  }).limit(25);
+  const scored = candidates
+    .map((existing) => ({ existing, score: familySimilarity(item, existing) }))
+    .filter(({ score }) => score >= 0.68)
+    .sort((left, right) => right.score - left.score);
+  if (scored.length === 1 && scored[0].score >= 0.86) {
+    return { existing: scored[0].existing, match: "family", score: scored[0].score };
+  }
+  if (scored.length) return { ambiguous: scored, match: "ambiguous" };
+  return { existing: null, match: "none" };
 };
 
 const newsQuery = (item) => {
@@ -270,7 +499,7 @@ const normalizeNewsInput = (item = {}) => {
   return normalized;
 };
 
-const mapTournament = async (item, organizer, existing = null) => {
+const mapTournament = async (item, organizer, existing = null, { preservePrimary = false } = {}) => {
   const startDate = asDate(item.startDate);
   const endDate = asDate(item.endDate, startDate);
   const metadata = normalizeTournamentMetadata(item);
@@ -287,10 +516,24 @@ const mapTournament = async (item, organizer, existing = null) => {
     }))
   ]);
 
-  return {
+  const registrationStatus = allowedRegistrationStatuses.has(item.registrationStatus)
+    ? item.registrationStatus
+    : item.registrationUrl
+      ? "open"
+      : "closed";
+  const lifecycleStatus = trimString(metadata.lifecycle?.status).toLowerCase();
+  const eventStatus = allowedLifecycleStatuses.has(lifecycleStatus) && lifecycleStatus === "cancelled"
+    ? "cancelled"
+    : "published";
+  const sourceKeys = [...new Set([...normalizeArray(existing?.sourceKeys), ...item.sourceKeys])].sort();
+  const sourceRefs = mergeSourceRefs(existing, item);
+  const incoming = {
     title: item.title,
     slug: existing?.slug || (await makeUniqueEventSlug(item.title, existing?._id)),
     dedupeKey: item.dedupeKey || "",
+    canonicalFamilyKey: item.canonicalFamilyKey,
+    sourceKeys,
+    sourceRefs,
     description: item.description || "",
     organizer: existing?.organizer || organizer._id,
     city: item.city || "Online",
@@ -298,8 +541,8 @@ const mapTournament = async (item, organizer, existing = null) => {
     address: item.address || "",
     startDate,
     endDate,
-    status: "published",
-    registrationStatus: item.registrationUrl ? "open" : "closed",
+    status: eventStatus,
+    registrationStatus,
     timeControl: item.timeControl && item.timeControl !== "unknown" ? item.timeControl : "",
     country: item.country || "",
     ratingType: allowedEventRatingTypes.has(item.ratingType) ? item.ratingType : "",
@@ -316,9 +559,50 @@ const mapTournament = async (item, organizer, existing = null) => {
       detailStatus: normalizeArray(item.qualityFlags).length ? "partial" : "complete"
     },
     externalLinks,
-    metadata: Object.keys(metadata).length ? metadata : existing?.metadata || {},
+    metadata: Object.keys(metadata).length
+      ? mergeTournamentMetadata(
+        existing?.metadata?.toObject ? existing.metadata.toObject() : existing?.metadata,
+        metadata,
+        { preferIncoming: !preservePrimary }
+      )
+      : existing?.metadata || {},
     dataQualityScore: Math.round((item.confidence || 0) * 100),
     isPublic: true
+  };
+
+  if (!existing || !preservePrimary) {
+    incoming.externalLinks = uniqueLinks([...normalizeArray(existing?.externalLinks), ...incoming.externalLinks]);
+    return incoming;
+  }
+
+  return {
+    ...incoming,
+    title: existing.title || incoming.title,
+    slug: existing.slug,
+    dedupeKey: existing.dedupeKey || incoming.dedupeKey,
+    description: existing.description || incoming.description,
+    organizer: existing.organizer,
+    city: existing.city || incoming.city,
+    venueName: existing.venueName || incoming.venueName,
+    address: existing.address || incoming.address,
+    startDate: existing.startDate || incoming.startDate,
+    endDate: existing.endDate || incoming.endDate,
+    timeControl: existing.timeControl || incoming.timeControl,
+    country: existing.country || incoming.country,
+    ratingType: existing.ratingType || incoming.ratingType,
+    sourceOrganizerName: existing.sourceOrganizerName || incoming.sourceOrganizerName,
+    websiteUrl: existing.websiteUrl || incoming.websiteUrl,
+    resultsUrl: existing.resultsUrl || incoming.resultsUrl,
+    regulationsUrl: existing.regulationsUrl || incoming.regulationsUrl,
+    source: existing.source,
+    status: existing.status === "cancelled" || incoming.status === "cancelled" ? "cancelled" : existing.status || incoming.status,
+    externalLinks: uniqueLinks([...normalizeArray(existing.externalLinks), ...incoming.externalLinks]),
+    metadata: mergeTournamentMetadata(
+      existing.metadata?.toObject ? existing.metadata.toObject() : existing.metadata,
+      incoming.metadata,
+      { preferIncoming: false }
+    ),
+    dataQualityScore: Math.max(existing.dataQualityScore || 0, incoming.dataQualityScore || 0)
   };
 };
 
@@ -366,14 +650,15 @@ const mapNews = async (item, existing = null) => {
 };
 
 const ingestTournaments = async ({ items, dryRun = false }) => {
-  const result = { created: [], updated: [], skipped: [], rejected: [], errors: [] };
+  const result = { created: [], updated: [], merged: [], skipped: [], rejected: [], errors: [] };
   const organizer = dryRun ? null : await findAgentOrganizer();
   if (!dryRun && !organizer) {
     result.errors.push({ message: "No admin or organizer user available for agent tournament ingest" });
     return result;
   }
 
-  for (const item of items) {
+  for (const rawItem of items) {
+    const item = normalizeTournamentInput(rawItem);
     try {
       const reasons = ensureReady(item, { minConfidence: TOURNAMENT_CONFIDENCE_MIN, blockingFlags: COMMON_BLOCKING_FLAGS });
       if (isSyntheticTestEvent(item)) reasons.push("synthetic/local test fixture is not allowed in production ingest");
@@ -387,21 +672,38 @@ const ingestTournaments = async ({ items, dryRun = false }) => {
         continue;
       }
 
-      const existing = await Event.findOne(query);
+      const found = await findTournamentMatch(item);
+      if (found.match === "ambiguous") {
+        result.rejected.push({
+          title: item.title,
+          dedupeKey: item.dedupeKey || "",
+          reasons: ["ambiguous possible duplicate; manual review required"]
+        });
+        continue;
+      }
+      const existing = found.existing;
       if (dryRun) {
-        (existing ? result.updated : result.created).push({
+        const target = existing ? (found.match === "family" ? result.merged : result.updated) : result.created;
+        target.push({
           title: item.title,
           dedupeKey: item.dedupeKey,
-          action: existing ? "would_update" : "would_create"
+          action: existing ? (found.match === "family" ? "would_merge" : "would_update") : "would_create"
         });
         continue;
       }
 
-      const payload = await mapTournament(item, organizer, existing);
+      if (existing && found.match === "source" && hasMatchingSourceHash(existing, item)) {
+        result.skipped.push({ id: String(existing._id), title: existing.title, reason: "source content unchanged" });
+        continue;
+      }
+
+      const preservePrimary = found.match === "family" && sourceAuthority(existing) >= sourceAuthority(item);
+      const payload = await mapTournament(item, organizer, existing, { preservePrimary });
       if (existing) {
         Object.assign(existing, payload);
         await existing.save();
-        result.updated.push({ id: String(existing._id), title: existing.title, dedupeKey: existing.dedupeKey });
+        const target = found.match === "family" ? result.merged : result.updated;
+        target.push({ id: String(existing._id), title: existing.title, dedupeKey: existing.dedupeKey });
       } else {
         const event = await Event.create(payload);
         result.created.push({ id: String(event._id), title: event.title, dedupeKey: event.dedupeKey });

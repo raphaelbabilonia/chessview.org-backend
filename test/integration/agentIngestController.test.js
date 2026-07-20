@@ -22,7 +22,17 @@ const tournamentItem = {
   registrationUrl: "https://example.org/tournaments/agent-test-open/register",
   resultsUrl: "https://example.org/tournaments/agent-test-open/results",
   metadata: {
+    schemaVersion: 2,
     enrichmentStatus: "complete",
+    lifecycle: {
+      status: "scheduled",
+      lastSourceUpdateAt: "2026-07-03T15:45:00.000Z"
+    },
+    classification: {
+      playMode: "otb",
+      entryType: "open",
+      teamEvent: false
+    },
     format: {
       system: "Swiss",
       rounds: 7,
@@ -49,6 +59,7 @@ const tournamentItem = {
       }
     ],
     sourceAudit: {
+      authority: "organizer",
       extractedAt: "2026-07-03T16:00:00.000Z",
       sourcesVisited: [
         {
@@ -229,6 +240,9 @@ describe("agentIngestController", () => {
     assert.equal(created.country, "Italy");
     assert.equal(created.resultsUrl, tournamentItem.resultsUrl);
     assert.equal(created.metadata.enrichmentStatus, "complete");
+    assert.equal(created.metadata.schemaVersion, 2);
+    assert.equal(created.metadata.lifecycle.status, "scheduled");
+    assert.equal(created.metadata.classification.playMode, "otb");
     assert.equal(created.metadata.format.rounds, 7);
     assert.equal(created.metadata.historicalEditions[0].playerCount, 72);
     assert.ok(created.externalLinks.some((link) => link.type === "registration"));
@@ -242,6 +256,111 @@ describe("agentIngestController", () => {
     assert.equal(second.body.meta.created, 0);
     assert.equal(second.body.meta.updated, 1);
     assert.equal(await Event.countDocuments({ dedupeKey: tournamentItem.dedupeKey }), 1);
+
+    const third = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "publish-tournaments-unchanged",
+      items: [{ ...tournamentItem, venue: "Updated Agent Hall" }]
+    });
+    assert.equal(third.body.meta.skipped, 1);
+  });
+
+  it("merges a second source into the same tournament family", async () => {
+    const first = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "family-source-one",
+      items: [tournamentItem]
+    });
+    assert.equal(first.body.meta.created, 1);
+
+    const secondSource = {
+      ...tournamentItem,
+      sourceName: "Vesus API",
+      sourceUrl: "https://vesus.org/event/agent-test-open",
+      websiteUrl: "https://vesus.org/event/agent-test-open",
+      registrationUrl: "",
+      resultsUrl: "",
+      originalId: "vesus-event-123",
+      dedupeKey: "vesus:event:123",
+      registrationStatus: "full"
+    };
+    const second = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "family-source-two",
+      items: [secondSource]
+    });
+    assert.equal(second.body.meta.created, 0);
+    assert.equal(second.body.meta.merged, 1);
+    assert.equal(await Event.countDocuments({ title: tournamentItem.title }), 1);
+
+    const merged = await Event.findOne({ title: tournamentItem.title }).lean();
+    assert.equal(merged.source.name, tournamentItem.sourceName);
+    assert.equal(merged.registrationStatus, "full");
+    assert.equal(merged.sourceKeys.length, 2);
+    assert.equal(merged.sourceRefs.length, 2);
+    assert.ok(merged.externalLinks.some((link) => link.url.includes("vesus.org")));
+  });
+
+  it("preserves connector-supplied corroborating source references on create", async () => {
+    const corroborated = {
+      ...tournamentItem,
+      sourceRefs: [
+        {
+          sourceKey: "connector:corroborating-calendar:agent-test-open",
+          name: "Corroborating Calendar",
+          url: "https://calendar.example.org/events/agent-test-open",
+          originalId: "calendar-agent-test-open",
+          lastCheckedAt: "2026-07-03T16:00:00.000Z",
+          contentHash: "corroborating-content-hash"
+        }
+      ]
+    };
+    const response = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "corroborating-source-refs",
+      items: [corroborated]
+    });
+    assert.equal(response.body.meta.created, 1);
+
+    const created = await Event.findOne({ dedupeKey: tournamentItem.dedupeKey }).lean();
+    assert.equal(created.sourceRefs.length, 2);
+    assert.ok(created.sourceKeys.includes("connector:corroborating-calendar:agent-test-open"));
+  });
+
+  it("maps a trusted cancellation into the event lifecycle without dropping v2 metadata", async () => {
+    const first = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "lifecycle-create",
+      items: [tournamentItem]
+    });
+    assert.equal(first.body.meta.created, 1);
+
+    const cancelled = {
+      ...tournamentItem,
+      metadata: {
+        ...tournamentItem.metadata,
+        lifecycle: {
+          status: "cancelled",
+          lastSourceUpdateAt: "2026-08-01T10:00:00.000Z"
+        },
+        sourceAudit: {
+          ...tournamentItem.metadata.sourceAudit,
+          extractedAt: "2026-08-01T10:05:00.000Z"
+        }
+      },
+      lastCheckedAt: "2026-08-01T10:05:00.000Z"
+    };
+    const second = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "lifecycle-cancel",
+      items: [cancelled]
+    });
+    assert.equal(second.body.meta.updated, 1);
+
+    const event = await Event.findOne({ dedupeKey: tournamentItem.dedupeKey }).lean();
+    assert.equal(event.status, "cancelled");
+    assert.equal(event.metadata.lifecycle.status, "cancelled");
+    assert.equal(event.metadata.classification.playMode, "otb");
   });
 
   it("updates event coordinates through the private coordinate ingest endpoint", async () => {
