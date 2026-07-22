@@ -82,31 +82,13 @@ JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:3000
 CLIENT_URLS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173,http://127.0.0.1:5174
 NODE_ENV=development
-TRACKING_ENABLED=true
-TRACKING_DASHBOARD_CODE=cv-tracking-4f7e9d2b-2026
-TRACKING_ALLOWED_ORIGINS=http://localhost:3001,http://127.0.0.1:3001
-TRACKING_SALT=change-this-local-tracking-salt
 ```
 
 Use a strong `JWT_SECRET` in any shared, staging, or production environment. Do not commit `.env`.
 
-## First-Party Tracking
+## Legacy Tracking Data
 
-The API includes an internal analytics endpoint for the public Next.js site:
-
-- `POST /api/tracking/events` stores pageviews, filter usage, language/theme changes, and outbound click events.
-- `GET /api/tracking/dashboard/:code?days=30&rollup=true` returns rollups for the hidden dashboard.
-- Visitor and session ids are HMAC hashed before storage; raw browser ids are not stored.
-- Tracking events expire after 90 days through the MongoDB TTL index on `receivedAt`.
-
-Run tracking maintenance locally with:
-
-```bash
-npm run tracking:audit
-npm run tracking:rollup -- --days=90
-```
-
-`npm run tracking:audit` writes local-only run history under the ignored `Codex Tracking/` workspace.
+The former public `/api/tracking` ingestion and dashboard endpoints are no longer mounted. Historical MongoDB collections are retained temporarily for private aggregate export and their existing retention rules; they are not migrated into the replacement PostHog Cloud EU project.
 
 ## Verification
 
@@ -142,19 +124,35 @@ npm run events:coordinates
 npm run events:coordinates -- --apply
 ```
 
-The command first uses the curated city table for known tournament locations. To let a weekly maintenance run look up new current gaps through OpenStreetMap Nominatim, enable the throttled geocoder:
+The command first uses the curated city table for known tournament locations. To let scheduled maintenance look up new current gaps through OpenStreetMap Nominatim, enable the throttled geocoder:
 
 ```bash
 npm run events:coordinates -- --geocode --apply
 ```
 
-Set `CHESSVIEW_GEOCODER_USER_AGENT`, `GEOCODING_MAX_PER_RUN`, and `GEOCODING_DELAY_MS` in production if the scheduled job uses geocoding. The default geocoding cap is 500 unique locations per run so a weekly pass can cover the current production tournament set while still throttling requests. The script stores resolved coordinates in `location.coordinates` and `metadata.logistics.coordinates` so the public Next.js country maps can render tournament dots.
+Set `CHESSVIEW_GEOCODER_USER_AGENT`, `GEOCODING_MAX_PER_RUN`, and `GEOCODING_DELAY_MS` in production if the scheduled job uses geocoding. The default geocoding cap is 500 unique locations per run so a throttled pass can cover current production gaps. The script stores resolved coordinates in `location.coordinates` and `metadata.logistics.coordinates` so the public Next.js country maps can render tournament dots.
 
 When direct database access is not the authoritative production path, use the private API-based coordinate backfill. It reads public events from `CHESSVIEW_API_BASE_URL`, resolves missing current locations, and posts coordinate-only updates through `/api/agent-ingest/coordinates`:
 
 ```bash
 npm run events:coordinates:api -- --geocode --apply
 ```
+
+## Tournament Acquisition Workflow
+
+Tournament collectors write only to ignored local queues. Codex review finalizers produce immutable, manifest-scoped outbox entries; the shared dispatcher is the only scheduled tournament publishing path:
+
+```bash
+npm run agent:collect-tournaments
+npm run agent:prepare-tournament-review-batch
+npm run agent:pending-tournament-publishes
+npm run agent:dispatch-tournament-publishes
+npm run agent:audit-tournament-coverage
+```
+
+The 200-candidate review size is a checkpoint boundary, not a daily limit. Scheduled collectors continue preparing and reviewing batches until their queues are empty. Tournament publishing requires `--domain tournaments`, an explicit `--input-manifest`, and a `--plan-file`; unscoped approved-folder publishing and `--domain all` are rejected. The dispatcher records dry-run target identities and a plan hash, then verifies the same inputs and target plan immediately before the live ingest.
+
+The deterministic connector portfolio prioritizes stable public APIs and official federation/platform feeds. A source is disabled on access uncertainty, identity instability, robots changes, schema drift, or 401/403/429 responses. Run `npm run agent:audit-cfc-identities` to inspect the quarantined historical Canadian positional-ID problem; the audit never mutates production records.
 
 ## News Discovery Workflow
 
