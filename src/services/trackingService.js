@@ -3,13 +3,12 @@ const TrackingDailyAggregate = require("../models/TrackingDailyAggregate");
 const TrackingEvent = require("../models/TrackingEvent");
 const { parseOrigins } = require("../config/env");
 
-const DEFAULT_DASHBOARD_CODE = "cv-tracking-4f7e9d2b-2026";
 const PAGEVIEW_EVENTS = new Set(["page_view", "event_detail_view", "country_page_view", "source_page_view"]);
 const MAX_DASHBOARD_DAYS = 90;
 
 const isTrackingEnabled = () => process.env.TRACKING_ENABLED !== "false";
 
-const dashboardCode = () => process.env.TRACKING_DASHBOARD_CODE || DEFAULT_DASHBOARD_CODE;
+const dashboardCode = () => process.env.TRACKING_DASHBOARD_CODE || "";
 
 const trackingSalt = () =>
   process.env.TRACKING_SALT || process.env.JWT_SECRET || "chessview-local-tracking-salt";
@@ -353,7 +352,6 @@ const getTrackingDashboard = async ({ days = 30 } = {}) => {
 };
 
 module.exports = {
-  DEFAULT_DASHBOARD_CODE,
   dashboardCode,
   getTrackingDashboard,
   ingestTrackingEvents,

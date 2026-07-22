@@ -7,20 +7,13 @@ const authRoutes = require("./routes/authRoutes");
 const broadcastRoutes = require("./routes/broadcastRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const newsRoutes = require("./routes/newsRoutes");
-const trackingRoutes = require("./routes/trackingRoutes");
 const tournamentRoutes = require("./routes/tournamentRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
 const { parseOrigins } = require("./config/env");
 
 const app = express();
 
-const splitOrigins = (value) =>
-  String(value || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
-const allowedOrigins = [...new Set([...parseOrigins(), ...splitOrigins(process.env.TRACKING_ALLOWED_ORIGINS)])];
+const allowedOrigins = parseOrigins();
 
 app.disable("x-powered-by");
 
@@ -66,7 +59,6 @@ app.use("/api/agent-collaboration", agentCollaborationRoutes);
 app.use("/api/agent-ingest", agentIngestRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/news", newsRoutes);
-app.use("/api/tracking", trackingRoutes);
 app.use("/api", tournamentRoutes);
 app.use("/api", broadcastRoutes);
 
