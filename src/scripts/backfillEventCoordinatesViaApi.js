@@ -17,13 +17,42 @@ require("dotenv").config({ quiet: true });
 const DEFAULT_GEOCODER_USER_AGENT = "ChessViewCoordinateBackfill/0.1 (https://chessview.org)";
 const GEOCODE_CACHE_PATH = path.resolve(process.cwd(), "Codex Tournament Pipeline", "state", "coordinate-geocode-cache.json");
 const NEGATIVE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const GEOCODE_STRATEGY_VERSION = 3;
+const GEOCODE_STRATEGY_VERSION = 4;
 const GEOCODER_COUNTRY_ALIASES = {
   "chinese taipei": "Taiwan",
   england: "United Kingdom",
   "hong kong china": "Hong Kong",
   scotland: "United Kingdom",
   wales: "United Kingdom"
+};
+const ADMINISTRATIVE_LABELS = new Set([
+  "andhra pradesh",
+  "assam",
+  "bihar",
+  "delhi",
+  "goa",
+  "gujarat",
+  "haryana",
+  "karnataka",
+  "kerala",
+  "madhya pradesh",
+  "maharashtra",
+  "odisha",
+  "punjab",
+  "rajasthan",
+  "raj",
+  "sikkim",
+  "tamil nadu",
+  "telangana",
+  "uttar pradesh",
+  "uttarakhand",
+  "west bengal"
+]);
+const PLACE_ALIASES = {
+  caba: "Buenos Aires",
+  dumiatt: "Damietta",
+  ktm: "Kathmandu",
+  mvd: "Montevideo"
 };
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
@@ -88,6 +117,65 @@ const geocoderCountryFor = (country) => {
   return GEOCODER_COUNTRY_ALIASES[normalized] || country;
 };
 
+const normalizeLookupText = (value) => String(value || "")
+  .normalize("NFKD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+const geocoderSearchText = (city, country) => {
+  const text = cleanLocationPart(city, { city: true });
+  const countryCode = countryCodeFor(country);
+  if (countryCode === "gb") {
+    const postcode = text.match(/\b(?:GIR ?0AA|[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})\b/i)?.[0];
+    if (postcode) return postcode.toUpperCase().replace(/\s+/, " ");
+  }
+
+  const normalizedCountry = normalizeLookupText(country);
+  const segments = text
+    .replace(/[()[\]]/g, ",")
+    .split(/[,;@|]+/)
+    .map((part) => part.trim().replace(/^[/-]+|[/-]+$/g, "").trim())
+    .filter(Boolean);
+
+  const candidates = [];
+  for (const segment of segments) {
+    for (const part of segment.split(/\s+-\s+/)) {
+      const containsStreetNumber = /\d/.test(part);
+      const candidate = part
+        .replace(/\b(?:postal\s*code|postcode|zip)\b.*$/i, "")
+        .replace(/\b\d{4,6}(?:-\d{3,4})?\b.*$/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const normalized = normalizeLookupText(candidate);
+      if (!normalized || normalized === normalizedCountry || ADMINISTRATIVE_LABELS.has(normalized)) continue;
+      if (/^[A-Z]{2,4}\.?$/.test(candidate) && !PLACE_ALIASES[normalized]) continue;
+      if (/^(?:venue|location|different|various|verschiedene|tbc|online)$/i.test(candidate)) continue;
+      if (/^(?:student|sports|community|conference|business|function|multipurpose)?\s*(?:centre|center|hall|building|school|club)$/i.test(candidate)) continue;
+      if (!containsStreetNumber && candidate.length >= 3 && candidate.length <= 45 && !/https?:\/\//i.test(candidate)) {
+        candidates.push(candidate);
+      }
+    }
+  }
+
+  const withoutFacilitySuffix = text
+    .replace(/\s+(?:Klub Szachowy|Miejska (?:Publiczna )?Biblioteka|Szkoła Podstawowa|sala Magistrat|Sports? Hall|Chess (?:Club|Centre)|Community Centre)\b.*$/iu, "")
+    .trim();
+  if (withoutFacilitySuffix.length >= 3 && withoutFacilitySuffix.length <= 45) {
+    candidates.unshift(withoutFacilitySuffix);
+  }
+
+  const aliasedCandidate = candidates.find((candidate) => PLACE_ALIASES[normalizeLookupText(candidate)]);
+  if (aliasedCandidate) return PLACE_ALIASES[normalizeLookupText(aliasedCandidate)];
+
+  const selected = candidates.reverse().find((candidate) => {
+    const normalized = normalizeLookupText(candidate);
+    return normalized && !ADMINISTRATIVE_LABELS.has(normalized);
+  }) || text;
+  return PLACE_ALIASES[normalizeLookupText(selected)] || selected;
+};
+
 const locationFromEvent = (event) => ({
   city: String(event.city || event.location?.city || "").trim(),
   country: cleanCountry(event.country || event.location?.country || ""),
@@ -101,7 +189,9 @@ const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
   const city = location.queryCity || cleanLocationPart(location.city, { city: true });
   const region = location.queryRegion || cleanLocationPart(location.region);
   const country = location.queryCountry || cleanCountry(location.country);
-  const query = [city, region, country].filter(Boolean).join(", ");
+  const searchText = geocoderSearchText(city, country);
+  const expectedCountryCode = countryCodeFor(country);
+  const query = [searchText, region, expectedCountryCode ? "" : country].filter(Boolean).join(", ");
   if (!query) return null;
 
   const url = new URL("https://nominatim.openstreetmap.org/search");
@@ -109,16 +199,7 @@ const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
   url.searchParams.set("limit", "5");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("accept-language", "en");
-  const looksLikeAddress = city.length > 45 ||
-    /\d|(?:street|st\.?|road|rd\.?|avenue|ave\.?|hotel|school|club|hall|centre|center|building|floor|office|carrer|calle|rua|ul\.?|strada)\b/i.test(city);
-  if (looksLikeAddress) {
-    url.searchParams.set("q", query);
-  } else {
-    if (city) url.searchParams.set("city", city);
-    if (region) url.searchParams.set("state", region);
-    if (country) url.searchParams.set("country", country);
-  }
-  const expectedCountryCode = countryCodeFor(country);
+  url.searchParams.set("q", query);
   if (expectedCountryCode) url.searchParams.set("countrycodes", expectedCountryCode);
 
   const response = await fetchImpl(url, {
@@ -370,6 +451,7 @@ if (require.main === module) {
 module.exports = {
   fetchEvents,
   geocodeLocation,
+  geocoderSearchText,
   hasLocationCoordinates,
   locationFromEvent,
   cleanLocationPart

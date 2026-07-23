@@ -6,6 +6,7 @@ const {
   cleanLocationPart,
   fetchEvents,
   geocodeLocation,
+  geocoderSearchText,
   locationFromEvent
 } = require("../src/scripts/backfillEventCoordinatesViaApi");
 const { applyEventCoordinateUpdates } = require("../src/services/eventCoordinateService");
@@ -52,6 +53,21 @@ describe("coordinate location safety", () => {
         queryRegion: ""
       }
     );
+    assert.equal(
+      geocoderSearchText("Thomas' Café, St Thomas' Church, Telford Avenue, SW2 4XW.", "England"),
+      "SW2 4XW"
+    );
+    assert.equal(
+      geocoderSearchText("Hotel Fantastico, Senta, Arpadova 1, SERBIA", "Serbia"),
+      "Senta"
+    );
+    assert.equal(
+      geocoderSearchText("Vishy Anand Chess Hall, KIIT University, Bhubaneswar", "India"),
+      "Bhubaneswar"
+    );
+    assert.equal(geocoderSearchText("CHITTORGARH (RAJ.)", "India"), "CHITTORGARH");
+    assert.equal(geocoderSearchText("Palmira - VAL", "Colombia"), "Palmira");
+    assert.equal(geocoderSearchText("CABA - Club Argentino de Ajedrez", "Argentina"), "Buenos Aires");
   });
 
   it("fetches every production API page", async () => {
@@ -81,6 +97,7 @@ describe("coordinate location safety", () => {
   it("rejects a geocoder result outside the requested country", async () => {
     const fetchImpl = async (url) => {
       assert.equal(url.searchParams.get("countrycodes"), "es");
+      assert.equal(url.searchParams.get("q"), "Barcelona, Catalonia");
       return {
         ok: true,
         json: async () => [
