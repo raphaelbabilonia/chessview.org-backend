@@ -7,6 +7,7 @@ const {
   tournamentContentHash,
   tournamentSourceKeys
 } = require("../../src/utils/tournamentIdentity");
+const { canonicalCountryName } = require("../../src/utils/countryNames");
 
 describe("tournamentIdentity", () => {
   const tournament = {
@@ -59,5 +60,13 @@ describe("tournamentIdentity", () => {
   it("scores close cross-source records highly and different dates as zero", () => {
     assert.ok(familySimilarity(tournament, { ...tournament, venueName: tournament.venue }) >= 0.9);
     assert.equal(familySimilarity(tournament, { ...tournament, startDate: "2026-11-10" }), 0);
+  });
+
+  it("canonicalizes country aliases used by source feeds", () => {
+    assert.equal(canonicalCountryName("United States of America"), "United States");
+    assert.equal(canonicalCountryName("Hong Kong, China"), "China");
+    assert.equal(canonicalCountryName("Republic of Turkiye"), "Turkey");
+    assert.equal(canonicalCountryName("Korea"), "South Korea");
+    assert.equal(canonicalCountryName("Türkiye"), "Turkey");
   });
 });

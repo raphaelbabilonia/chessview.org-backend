@@ -6,6 +6,7 @@ const User = require("../models/User");
 const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const slugify = require("../utils/slugify");
 const { isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
+const { canonicalCountryName } = require("../utils/countryNames");
 const {
   canonicalFamilyKey,
   escapeRegex,
@@ -214,9 +215,46 @@ const tournamentQuery = (item) => {
       "source.originalId": item.originalId
     });
   }
-  if (item.sourceUrl) clauses.push({ "source.url": item.sourceUrl });
+  // A listing URL is not an event identity when the source supplies a stable id.
+  // Federation calendars can legitimately expose every event from one list page;
+  // matching those records by URL makes later items overwrite the first one.
+  if (item.sourceUrl && !item.originalId) clauses.push({ "source.url": item.sourceUrl });
   if (clauses.length === 0) return null;
   return { $or: clauses };
+};
+
+const tournamentSourceIdentity = (item = {}) => {
+  const sourceName = normalizeText(item.sourceName || item.source?.name);
+  const originalId = trimString(item.originalId || item.source?.originalId);
+  const sourceUrl = normalizeUrl(item.sourceUrl || item.source?.url);
+  if (sourceName && originalId) return `${sourceName}|id:${originalId}`;
+  if (sourceName && sourceUrl) return `${sourceName}|url:${sourceUrl}`;
+  return "";
+};
+
+const batchIdentityCollisions = (items = []) => {
+  const byListingUrl = new Map();
+  const reasons = new Map();
+
+  for (const item of items) {
+    const sourceName = normalizeText(item.sourceName || item.source?.name);
+    const sourceUrl = normalizeUrl(item.sourceUrl || item.source?.url);
+    const identity = tournamentSourceIdentity(item);
+    if (!sourceName || !sourceUrl || !identity) continue;
+    const key = `${sourceName}|${sourceUrl}`;
+    if (!byListingUrl.has(key)) byListingUrl.set(key, new Set());
+    byListingUrl.get(key).add(identity);
+  }
+
+  for (const [key, identities] of byListingUrl) {
+    if (identities.size < 2) continue;
+    const url = key.slice(key.indexOf("|") + 1);
+    for (const identity of identities) {
+      reasons.set(identity, `source URL collision: ${identities.size} distinct source identities share ${url}`);
+    }
+  }
+
+  return reasons;
 };
 
 const mergeTournamentMetadata = (existingValue, incomingValue, { preferIncoming = true } = {}) => {
@@ -286,7 +324,7 @@ const normalizeTournamentInput = (item = {}) => {
     sourceUrl: normalizeUrl(item.sourceUrl),
     originalId: trimString(item.originalId),
     city: trimString(item.city),
-    country: trimString(item.country),
+    country: canonicalCountryName(item.country),
     venue: trimString(item.venue || item.venueName),
     startDate: item.startDate,
     endDate: item.endDate || item.startDate,
@@ -652,15 +690,19 @@ const mapNews = async (item, existing = null) => {
 const ingestTournaments = async ({ items, dryRun = false }) => {
   const result = { created: [], updated: [], merged: [], skipped: [], rejected: [], errors: [] };
   const organizer = dryRun ? null : await findAgentOrganizer();
+  const normalizedItems = items.map(normalizeTournamentInput);
+  const identityCollisions = batchIdentityCollisions(normalizedItems);
+  const claimedTargets = new Map();
   if (!dryRun && !organizer) {
     result.errors.push({ message: "No admin or organizer user available for agent tournament ingest" });
     return result;
   }
 
-  for (const rawItem of items) {
-    const item = normalizeTournamentInput(rawItem);
+  for (const item of normalizedItems) {
     try {
       const reasons = ensureReady(item, { minConfidence: TOURNAMENT_CONFIDENCE_MIN, blockingFlags: COMMON_BLOCKING_FLAGS });
+      const sourceIdentity = tournamentSourceIdentity(item);
+      if (identityCollisions.has(sourceIdentity)) reasons.push(identityCollisions.get(sourceIdentity));
       if (isSyntheticTestEvent(item)) reasons.push("synthetic/local test fixture is not allowed in production ingest");
       const query = tournamentQuery(item);
       if (!query) reasons.push("missing dedupe key, original id, and source URL");
@@ -682,11 +724,30 @@ const ingestTournaments = async ({ items, dryRun = false }) => {
         continue;
       }
       const existing = found.existing;
+      if (existing) {
+        const targetId = String(existing._id);
+        const previousClaim = claimedTargets.get(targetId);
+        if (previousClaim && previousClaim.sourceName === normalizeText(item.sourceName) && previousClaim.identity !== sourceIdentity) {
+          result.rejected.push({
+            title: item.title,
+            dedupeKey: item.dedupeKey || "",
+            reasons: [`same-target collision with ${previousClaim.title}; distinct identities from one source resolved to event ${targetId}`]
+          });
+          continue;
+        }
+        claimedTargets.set(targetId, {
+          identity: sourceIdentity,
+          sourceName: normalizeText(item.sourceName),
+          title: item.title
+        });
+      }
       if (dryRun) {
         const target = existing ? (found.match === "family" ? result.merged : result.updated) : result.created;
         target.push({
+          targetId: existing ? String(existing._id) : null,
           title: item.title,
           dedupeKey: item.dedupeKey,
+          sourceIdentity,
           action: existing ? (found.match === "family" ? "would_merge" : "would_update") : "would_create"
         });
         continue;
@@ -762,9 +823,11 @@ const ingestNews = async ({ items, dryRun = false }) => {
 };
 
 module.exports = {
+  batchIdentityCollisions,
   ingestNews,
   ingestTournaments,
   NEWS_BLOCKING_FLAGS,
   NEWS_CONFIDENCE_MIN,
-  TOURNAMENT_CONFIDENCE_MIN
+  TOURNAMENT_CONFIDENCE_MIN,
+  tournamentSourceIdentity
 };

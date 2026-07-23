@@ -5,6 +5,7 @@ const NewsItem = require("../models/NewsItem");
 const { ingestNews, ingestTournaments } = require("./agentIngestService");
 const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const slugify = require("../utils/slugify");
+const { chessviewApiUrl } = require("../utils/chessviewApiUrl");
 
 const EVENT_AUTO_CONFIDENCE_MIN = 0.85;
 const NEWS_AUTO_CONFIDENCE_MIN = 0.82;
@@ -483,7 +484,7 @@ const decideSubmission = async (submission, now = new Date()) => {
     if (asDate(item.endDate) < startOfUtcDay(now)) reasons.push("event is already past");
     if (await eventDuplicateExists(item)) reasons.push("duplicate event already exists");
 
-    if (reasons.length === 0) return { action: "publish", reasons: ["accepted for weekly auto-publication"] };
+    if (reasons.length === 0) return { action: "shared_review", reasons: ["queued for the shared Sol tournament review pipeline"] };
     const status = reasons.some((reason) => reason.includes("confidence") || reason.includes("quality flag"))
       ? "quarantined"
       : "rejected";
@@ -564,12 +565,18 @@ const reviewPublicAgentSubmissions = async ({
 } = {}) => {
   const submissions = await AgentSubmission.find({ status: "queued" }).sort({ createdAt: 1 }).limit(limit);
   const accepted = [];
+  const deferredEvents = [];
   const reviewed = [];
   const events = [];
   const news = [];
 
   for (const submission of submissions) {
     const decision = await decideSubmission(submission, now);
+    if (decision.action === "shared_review") {
+      deferredEvents.push({ submissionId: submission.submissionId, title: submission.normalized?.title || "", reasons: decision.reasons });
+      reviewed.push({ submissionId: submission.submissionId, kind: submission.kind, action: "shared_review", reasons: decision.reasons });
+      continue;
+    }
     if (decision.action === "publish") {
       const item = publishItemFor(submission, now);
       accepted.push({ submission, item, reasons: decision.reasons });
@@ -616,6 +623,7 @@ const reviewPublicAgentSubmissions = async ({
     reviewRunId,
     scanned: submissions.length,
     accepted: accepted.length,
+    deferredEvents,
     reviewed,
     publishMeta: {
       events: publishResults.events?.meta || {},
@@ -641,21 +649,21 @@ const postJson = async ({ url, token, body }) => {
 };
 
 const makeHttpPublisher = ({ apiBaseUrl, token }) => {
-  const base = String(apiBaseUrl || "").replace(/\/+$/, "");
+  const base = String(apiBaseUrl || "");
   if (!base) throw new Error("Missing CHESSVIEW_API_BASE_URL");
   if (!token) throw new Error("Missing AGENT_PUBLISH_TOKEN or CHESSVIEW_AGENT_PUBLISH_TOKEN");
 
   return async ({ events, news, dryRun, reviewRunId }) => ({
     events: events.length
       ? await postJson({
-          url: `${base}/agent-ingest/tournaments`,
+          url: chessviewApiUrl(base, "/agent-ingest/tournaments"),
           token,
           body: { dryRun, runId: reviewRunId, items: events }
         })
       : { success: true, meta: { created: 0, updated: 0, rejected: 0, errors: 0 }, created: [], updated: [], rejected: [], errors: [] },
     news: news.length
       ? await postJson({
-          url: `${base}/agent-ingest/news`,
+          url: chessviewApiUrl(base, "/agent-ingest/news"),
           token,
           body: { dryRun, runId: reviewRunId, items: news }
         })

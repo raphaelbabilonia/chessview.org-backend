@@ -265,6 +265,43 @@ describe("agentIngestController", () => {
     assert.equal(third.body.meta.skipped, 1);
   });
 
+  it("rejects distinct source identities that share one listing URL", async () => {
+    const sharedUrl = "https://federation.example.org/events";
+    const first = {
+      ...tournamentItem,
+      title: "Calendar Event One",
+      sourceName: "Federation Calendar",
+      sourceUrl: sharedUrl,
+      websiteUrl: sharedUrl,
+      originalId: "calendar-one",
+      dedupeKey: "italy|milano|2026-10-10|calendar-one"
+    };
+    const second = {
+      ...tournamentItem,
+      title: "Calendar Event Two",
+      sourceName: "Federation Calendar",
+      sourceUrl: sharedUrl,
+      websiteUrl: sharedUrl,
+      originalId: "calendar-two",
+      dedupeKey: "italy|torino|2026-11-10|calendar-two",
+      city: "Torino",
+      venue: "Torino Chess Hall",
+      startDate: "2026-11-10",
+      endDate: "2026-11-11"
+    };
+
+    const response = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: false,
+      runId: "shared-listing-url-guard",
+      items: [first, second]
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.meta.rejected, 2);
+    assert.ok(response.body.rejected.every((entry) => entry.reasons.some((reason) => reason.includes("source URL collision"))));
+    assert.equal(await Event.countDocuments({ "source.name": "Federation Calendar" }), 0);
+  });
+
   it("merges a second source into the same tournament family", async () => {
     const first = await postIngest(client, "/api/agent-ingest/tournaments", {
       dryRun: false,
