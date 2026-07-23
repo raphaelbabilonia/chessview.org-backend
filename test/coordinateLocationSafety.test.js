@@ -2,7 +2,12 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const Event = require("../src/models/Event");
 const { resolveCuratedLocation } = require("../src/data/locationCoordinates");
-const { cleanLocationPart, fetchEvents, geocodeLocation } = require("../src/scripts/backfillEventCoordinatesViaApi");
+const {
+  cleanLocationPart,
+  fetchEvents,
+  geocodeLocation,
+  locationFromEvent
+} = require("../src/scripts/backfillEventCoordinatesViaApi");
 const { applyEventCoordinateUpdates } = require("../src/services/eventCoordinateService");
 const { countryCodeFor, geocoderResultMatchesCountry } = require("../src/utils/geocodingSafety");
 
@@ -35,6 +40,18 @@ describe("coordinate location safety", () => {
   it("cleans query-only labels and postal noise without changing source fields", () => {
     assert.equal(cleanLocationPart("City: 00100 Rome (venue TBC)", { city: true }), "Rome");
     assert.equal(cleanLocationPart("Region: Lazio"), "Lazio");
+    assert.equal(cleanLocationPart("3rd floor, Sports Centre", { city: true }), "3rd floor, Sports Centre");
+    assert.deepEqual(
+      locationFromEvent({ city: "Kaohsiung", country: "Chinese Taipei" }),
+      {
+        city: "Kaohsiung",
+        country: "Chinese Taipei",
+        region: "",
+        queryCity: "Kaohsiung",
+        queryCountry: "Taiwan",
+        queryRegion: ""
+      }
+    );
   });
 
   it("fetches every production API page", async () => {

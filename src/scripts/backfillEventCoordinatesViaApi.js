@@ -17,7 +17,14 @@ require("dotenv").config({ quiet: true });
 const DEFAULT_GEOCODER_USER_AGENT = "ChessViewCoordinateBackfill/0.1 (https://chessview.org)";
 const GEOCODE_CACHE_PATH = path.resolve(process.cwd(), "Codex Tournament Pipeline", "state", "coordinate-geocode-cache.json");
 const NEGATIVE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const GEOCODE_STRATEGY_VERSION = 2;
+const GEOCODE_STRATEGY_VERSION = 3;
+const GEOCODER_COUNTRY_ALIASES = {
+  "chinese taipei": "Taiwan",
+  england: "United Kingdom",
+  "hong kong china": "Hong Kong",
+  scotland: "United Kingdom",
+  wales: "United Kingdom"
+};
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 
@@ -62,6 +69,7 @@ const cleanLocationPart = (value, { city = false } = {}) => {
     .trim();
   if (city) {
     text = text
+      .replace(/^(?:г\.?|or\.?)\s+/iu, "")
       .replace(/^\d{4,6}\s*[,/-]?\s*/i, "")
       .replace(/\s*[,;|]\s*(?:\d{1,6}\b.*)$/i, "")
       .replace(/\s*\((?:online|virtual|venue tbc|tbc)\)\s*$/i, "")
@@ -70,12 +78,22 @@ const cleanLocationPart = (value, { city = false } = {}) => {
   return text;
 };
 
+const geocoderCountryFor = (country) => {
+  const normalized = String(country || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return GEOCODER_COUNTRY_ALIASES[normalized] || country;
+};
+
 const locationFromEvent = (event) => ({
   city: String(event.city || event.location?.city || "").trim(),
   country: cleanCountry(event.country || event.location?.country || ""),
   region: String(event.region || event.location?.region || "").trim(),
   queryCity: cleanLocationPart(event.city || event.location?.city || "", { city: true }),
-  queryCountry: cleanCountry(event.country || event.location?.country || ""),
+  queryCountry: geocoderCountryFor(cleanCountry(event.country || event.location?.country || "")),
   queryRegion: cleanLocationPart(event.region || event.location?.region || "")
 });
 
@@ -238,8 +256,11 @@ const main = async () => {
     let cachedResolution = resolutionCache.get(locationKey);
     const durable = durableCache.entries[locationKey];
     if (!cachedResolution && durable) {
+      const wasNotAttempted = durable.reason === "geocode-limit-reached" || durable.reason === "geocoding-disabled";
       const negativeExpired = !durable.resolved && Date.now() - new Date(durable.checkedAt).getTime() > NEGATIVE_CACHE_TTL_MS;
-      if (!negativeExpired) cachedResolution = { reason: durable.reason, resolved: durable.resolved || null };
+      if (!wasNotAttempted && !negativeExpired) {
+        cachedResolution = { reason: durable.reason, resolved: durable.resolved || null };
+      }
     }
 
     if (!cachedResolution) {
@@ -261,7 +282,9 @@ const main = async () => {
 
       cachedResolution = { reason, resolved };
       resolutionCache.set(locationKey, cachedResolution);
-      durableCache.entries[locationKey] = { checkedAt: new Date().toISOString(), reason, resolved };
+      if (resolved || reason === "not-found") {
+        durableCache.entries[locationKey] = { checkedAt: new Date().toISOString(), reason, resolved };
+      }
     }
 
     const { reason, resolved } = cachedResolution;
