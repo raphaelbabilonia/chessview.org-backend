@@ -12,18 +12,37 @@ const COUNTRY_CODE_ALIASES = {
   "chinese taipei": "tw",
   "czech republic": "cz",
   england: "gb",
+  hongkong: "hk",
   "hong kong china": "hk",
   "ivory coast": "ci",
   kosovo: "xk",
   "north macedonia": "mk",
   "puerto rico": "pr",
+  "republic of turkiye": "tr",
   russia: "ru",
   scotland: "gb",
+  serbia: "rs",
   turkey: "tr",
   "united kingdom": "gb",
   "united states": "us",
   wales: "gb"
 };
+
+// Intl.DisplayNames recognizes retired region codes too. Excluding them
+// prevents current countries such as Germany and Serbia mapping to DD or CS.
+const RETIRED_REGION_CODES = new Set([
+  "AN",
+  "BU",
+  "CS",
+  "DD",
+  "FX",
+  "NT",
+  "SU",
+  "TP",
+  "YD",
+  "YU",
+  "ZR"
+]);
 
 let countryCodesByName;
 
@@ -36,6 +55,7 @@ const buildCountryCodeIndex = () => {
   for (let first = 65; first <= 90; first += 1) {
     for (let second = 65; second <= 90; second += 1) {
       const code = String.fromCharCode(first, second);
+      if (RETIRED_REGION_CODES.has(code)) continue;
       const name = displayNames.of(code);
       const normalizedName = normalizeCountry(name);
       if (name && name !== code && !countryCodesByName.has(normalizedName)) {
