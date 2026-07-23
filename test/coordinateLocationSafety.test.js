@@ -25,6 +25,9 @@ describe("coordinate location safety", () => {
     assert.equal(countryCodeFor("Spain"), "es");
     assert.equal(countryCodeFor("England"), "gb");
     assert.equal(countryCodeFor("United Kingdom"), "gb");
+    assert.equal(countryCodeFor("Germany"), "de");
+    assert.equal(countryCodeFor("Serbia"), "rs");
+    assert.equal(countryCodeFor("Republic of Turkiye"), "tr");
     assert.equal(geocoderResultMatchesCountry({ address: { country_code: "es" } }, "Spain"), true);
     assert.equal(geocoderResultMatchesCountry({ address: { country_code: "mx" } }, "Spain"), false);
   });

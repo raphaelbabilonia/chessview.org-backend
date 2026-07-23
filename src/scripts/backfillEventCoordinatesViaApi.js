@@ -17,6 +17,7 @@ require("dotenv").config({ quiet: true });
 const DEFAULT_GEOCODER_USER_AGENT = "ChessViewCoordinateBackfill/0.1 (https://chessview.org)";
 const GEOCODE_CACHE_PATH = path.resolve(process.cwd(), "Codex Tournament Pipeline", "state", "coordinate-geocode-cache.json");
 const NEGATIVE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GEOCODE_STRATEGY_VERSION = 2;
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 
@@ -61,7 +62,7 @@ const cleanLocationPart = (value, { city = false } = {}) => {
     .trim();
   if (city) {
     text = text
-      .replace(/^\d{1,6}[A-Z]?\s*[,/-]?\s*/i, "")
+      .replace(/^\d{4,6}\s*[,/-]?\s*/i, "")
       .replace(/\s*[,;|]\s*(?:\d{1,6}\b.*)$/i, "")
       .replace(/\s*\((?:online|virtual|venue tbc|tbc)\)\s*$/i, "")
       .trim();
@@ -90,9 +91,15 @@ const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
   url.searchParams.set("limit", "5");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("accept-language", "en");
-  if (city) url.searchParams.set("city", city);
-  if (region) url.searchParams.set("state", region);
-  if (country) url.searchParams.set("country", country);
+  const looksLikeAddress = city.length > 45 ||
+    /\d|(?:street|st\.?|road|rd\.?|avenue|ave\.?|hotel|school|club|hall|centre|center|building|floor|office|carrer|calle|rua|ul\.?|strada)\b/i.test(city);
+  if (looksLikeAddress) {
+    url.searchParams.set("q", query);
+  } else {
+    if (city) url.searchParams.set("city", city);
+    if (region) url.searchParams.set("state", region);
+    if (country) url.searchParams.set("country", country);
+  }
   const expectedCountryCode = countryCodeFor(country);
   if (expectedCountryCode) url.searchParams.set("countrycodes", expectedCountryCode);
 
@@ -128,12 +135,16 @@ const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
 };
 
 const readGeocodeCache = () => {
-  if (!fs.existsSync(GEOCODE_CACHE_PATH)) return { schemaVersion: 1, entries: {} };
+  if (!fs.existsSync(GEOCODE_CACHE_PATH)) {
+    return { schemaVersion: 2, strategyVersion: GEOCODE_STRATEGY_VERSION, entries: {} };
+  }
   try {
     const cache = JSON.parse(fs.readFileSync(GEOCODE_CACHE_PATH, "utf8"));
-    return cache?.entries ? cache : { schemaVersion: 1, entries: {} };
+    return cache?.entries
+      ? cache
+      : { schemaVersion: 2, strategyVersion: GEOCODE_STRATEGY_VERSION, entries: {} };
   } catch {
-    return { schemaVersion: 1, entries: {} };
+    return { schemaVersion: 2, strategyVersion: GEOCODE_STRATEGY_VERSION, entries: {} };
   }
 };
 
@@ -221,7 +232,7 @@ const main = async () => {
 
   for (const event of missingEvents) {
     const location = locationFromEvent(event);
-    const locationKey = [location.queryCity, location.queryRegion, location.queryCountry]
+    const locationKey = [`v${GEOCODE_STRATEGY_VERSION}`, location.queryCity, location.queryRegion, location.queryCountry]
       .map((value) => String(value || "").trim().toLowerCase())
       .join("|");
     let cachedResolution = resolutionCache.get(locationKey);
@@ -275,6 +286,8 @@ const main = async () => {
       coordinateCountryCode: resolved.coordinateCountryCode || countryCodeFor(resolved.country || location.country)
     });
   }
+  durableCache.schemaVersion = 2;
+  durableCache.strategyVersion = GEOCODE_STRATEGY_VERSION;
   durableCache.updatedAt = new Date().toISOString();
   writeGeocodeCache(durableCache);
 

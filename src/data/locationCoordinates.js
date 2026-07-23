@@ -1,7 +1,9 @@
 const COUNTRY_ALIASES = {
   america: "United States",
   czechia: "Czech Republic",
+  hongkong: "Hong Kong, China",
   "hong kong china": "Hong Kong, China",
+  "republic of turkiye": "Turkey",
   turkiye: "Turkey",
   turkey: "Turkey",
   uk: "United Kingdom",
