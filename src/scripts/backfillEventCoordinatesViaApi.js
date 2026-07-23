@@ -6,6 +6,7 @@ const {
   countryCodeFor,
   geocoderResultMatchesCountry
 } = require("../utils/geocodingSafety");
+const { normalizeApiRoot } = require("../utils/chessviewApiUrl");
 
 const localEnvPath = path.resolve(process.cwd(), ".env.local");
 if (fs.existsSync(localEnvPath)) {
@@ -14,6 +15,8 @@ if (fs.existsSync(localEnvPath)) {
 require("dotenv").config({ quiet: true });
 
 const DEFAULT_GEOCODER_USER_AGENT = "ChessViewCoordinateBackfill/0.1 (https://chessview.org)";
+const GEOCODE_CACHE_PATH = path.resolve(process.cwd(), "Codex Tournament Pipeline", "state", "coordinate-geocode-cache.json");
+const NEGATIVE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 
@@ -29,9 +32,7 @@ const parsePositiveInt = (value, fallback) => {
 };
 
 const apiRoot = () => {
-  const base = process.env.CHESSVIEW_API_BASE_URL;
-  if (!base) throw new Error("Missing CHESSVIEW_API_BASE_URL");
-  return base.replace(/\/+$/, "");
+  return normalizeApiRoot(process.env.CHESSVIEW_API_BASE_URL);
 };
 
 const agentToken = () => {
@@ -51,14 +52,37 @@ const sleep = (ms) => new Promise((resolve) => {
 
 const hasLocationCoordinates = (event) => coordinateIsValid(event.location?.coordinates || []);
 
+const cleanLocationPart = (value, { city = false } = {}) => {
+  let text = String(value || "").normalize("NFKC").replace(/\s+/g, " ").trim();
+  text = text
+    .replace(/^(?:venue|address|location|city|town|municipality|region|state|province)\s*:\s*/i, "")
+    .replace(/\b(?:postal\s*code|postcode|zip)\s*:?\s*[A-Z0-9 -]{3,10}\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (city) {
+    text = text
+      .replace(/^\d{1,6}[A-Z]?\s*[,/-]?\s*/i, "")
+      .replace(/\s*[,;|]\s*(?:\d{1,6}\b.*)$/i, "")
+      .replace(/\s*\((?:online|virtual|venue tbc|tbc)\)\s*$/i, "")
+      .trim();
+  }
+  return text;
+};
+
 const locationFromEvent = (event) => ({
   city: String(event.city || event.location?.city || "").trim(),
   country: cleanCountry(event.country || event.location?.country || ""),
-  region: String(event.region || event.location?.region || "").trim()
+  region: String(event.region || event.location?.region || "").trim(),
+  queryCity: cleanLocationPart(event.city || event.location?.city || "", { city: true }),
+  queryCountry: cleanCountry(event.country || event.location?.country || ""),
+  queryRegion: cleanLocationPart(event.region || event.location?.region || "")
 });
 
 const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
-  const query = [location.city, location.region, cleanCountry(location.country)].filter(Boolean).join(", ");
+  const city = location.queryCity || cleanLocationPart(location.city, { city: true });
+  const region = location.queryRegion || cleanLocationPart(location.region);
+  const country = location.queryCountry || cleanCountry(location.country);
+  const query = [city, region, country].filter(Boolean).join(", ");
   if (!query) return null;
 
   const url = new URL("https://nominatim.openstreetmap.org/search");
@@ -66,8 +90,10 @@ const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
   url.searchParams.set("limit", "5");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("accept-language", "en");
-  url.searchParams.set("q", query);
-  const expectedCountryCode = countryCodeFor(location.country);
+  if (city) url.searchParams.set("city", city);
+  if (region) url.searchParams.set("state", region);
+  if (country) url.searchParams.set("country", country);
+  const expectedCountryCode = countryCodeFor(country);
   if (expectedCountryCode) url.searchParams.set("countrycodes", expectedCountryCode);
 
   const response = await fetchImpl(url, {
@@ -83,7 +109,7 @@ const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
 
   const results = await response.json();
   const match = Array.isArray(results)
-    ? results.find((result) => geocoderResultMatchesCountry(result, location.country))
+    ? results.find((result) => geocoderResultMatchesCountry(result, country))
     : null;
   if (!match) return null;
 
@@ -92,13 +118,30 @@ const geocodeLocation = async (location, { fetchImpl = fetch, userAgent }) => {
 
   return {
     city: location.city,
-    country: cleanCountry(location.country),
+    country,
     region: location.region || "",
     coordinates,
     label: match.display_name || query,
     source: "nominatim",
     coordinateCountryCode: String(match.address?.country_code || "").toLowerCase()
   };
+};
+
+const readGeocodeCache = () => {
+  if (!fs.existsSync(GEOCODE_CACHE_PATH)) return { schemaVersion: 1, entries: {} };
+  try {
+    const cache = JSON.parse(fs.readFileSync(GEOCODE_CACHE_PATH, "utf8"));
+    return cache?.entries ? cache : { schemaVersion: 1, entries: {} };
+  } catch {
+    return { schemaVersion: 1, entries: {} };
+  }
+};
+
+const writeGeocodeCache = (cache) => {
+  fs.mkdirSync(path.dirname(GEOCODE_CACHE_PATH), { recursive: true });
+  const temporary = `${GEOCODE_CACHE_PATH}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+  fs.renameSync(temporary, GEOCODE_CACHE_PATH);
 };
 
 const eventIdentity = (event) => ({
@@ -173,14 +216,20 @@ const main = async () => {
   const updates = [];
   const unresolved = [];
   const resolutionCache = new Map();
+  const durableCache = readGeocodeCache();
   let geocodeCalls = 0;
 
   for (const event of missingEvents) {
     const location = locationFromEvent(event);
-    const locationKey = [location.city, location.region, location.country]
+    const locationKey = [location.queryCity, location.queryRegion, location.queryCountry]
       .map((value) => String(value || "").trim().toLowerCase())
       .join("|");
     let cachedResolution = resolutionCache.get(locationKey);
+    const durable = durableCache.entries[locationKey];
+    if (!cachedResolution && durable) {
+      const negativeExpired = !durable.resolved && Date.now() - new Date(durable.checkedAt).getTime() > NEGATIVE_CACHE_TTL_MS;
+      if (!negativeExpired) cachedResolution = { reason: durable.reason, resolved: durable.resolved || null };
+    }
 
     if (!cachedResolution) {
       const curated = resolveCuratedLocation(location);
@@ -201,6 +250,7 @@ const main = async () => {
 
       cachedResolution = { reason, resolved };
       resolutionCache.set(locationKey, cachedResolution);
+      durableCache.entries[locationKey] = { checkedAt: new Date().toISOString(), reason, resolved };
     }
 
     const { reason, resolved } = cachedResolution;
@@ -225,6 +275,8 @@ const main = async () => {
       coordinateCountryCode: resolved.coordinateCountryCode || countryCodeFor(resolved.country || location.country)
     });
   }
+  durableCache.updatedAt = new Date().toISOString();
+  writeGeocodeCache(durableCache);
 
   const responses = [];
   if (updates.length) {
@@ -283,5 +335,6 @@ module.exports = {
   fetchEvents,
   geocodeLocation,
   hasLocationCoordinates,
-  locationFromEvent
+  locationFromEvent,
+  cleanLocationPart
 };

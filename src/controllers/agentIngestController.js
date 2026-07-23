@@ -41,12 +41,14 @@ const sendIngestResult = (res, { runId, dryRun, result }) =>
     dryRun,
     created: result.created,
     updated: result.updated,
+    merged: result.merged || [],
     skipped: result.skipped,
     rejected: result.rejected,
     errors: result.errors,
     meta: {
       created: result.created.length,
       updated: result.updated.length,
+      merged: (result.merged || []).length,
       skipped: result.skipped.length,
       rejected: result.rejected.length,
       errors: result.errors.length

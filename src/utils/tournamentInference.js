@@ -32,6 +32,7 @@ const inferMinutesFromText = (text) => {
 
 const inferTimeControl = (value) => {
   const text = String(value || "").toLowerCase();
+  if (/\b(?:mixed|rapid\s*(?:\/|&|and)\s*blitz|blitz\s*(?:\/|&|and)\s*rapid)\b/.test(text)) return "mixed";
   if (text.includes("blitz")) return "blitz";
   if (text.includes("rapid")) return "rapid";
   if (text.includes("classical") || text.includes("standard")) return "standard";

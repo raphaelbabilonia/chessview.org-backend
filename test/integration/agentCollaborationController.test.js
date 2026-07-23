@@ -127,7 +127,7 @@ describe("agentCollaborationController", () => {
     assert.equal(schema.body.title, "ChessView Agent Collaboration Submission");
   });
 
-  it("auto-reviews high-confidence queued submissions and publishes through ingest", async () => {
+  it("routes tournament submissions to shared review while news keeps its existing publisher", async () => {
     const res = await client.json("POST", "/api/agent-collaboration/submissions", batch([eventItem, newsItem]));
     assert.equal(res.status, 202);
 
@@ -137,10 +137,39 @@ describe("agentCollaborationController", () => {
       reviewRunId: "integration-public-review"
     });
 
-    assert.equal(review.accepted, 2);
-    assert.equal(await Event.countDocuments({ title: eventItem.title }), 1);
+    assert.equal(review.accepted, 1);
+    assert.equal(review.deferredEvents.length, 1);
+    assert.equal(review.deferredEvents[0].title, eventItem.title);
+    assert.equal(await Event.countDocuments({ title: eventItem.title }), 0);
     assert.equal(await NewsItem.countDocuments({ title: newsItem.title }), 1);
-    assert.equal(await AgentSubmission.countDocuments({ status: "published" }), 2);
+    assert.equal(await AgentSubmission.countDocuments({ status: "published" }), 1);
+    assert.equal(await AgentSubmission.countDocuments({ kind: "event", status: "queued" }), 1);
+  });
+
+  it("exports queued tournaments through the private intake and accepts final shared-pipeline status", async () => {
+    const previous = process.env.AGENT_PUBLISH_TOKEN;
+    process.env.AGENT_PUBLISH_TOKEN = "collaboration-private-test-token";
+    try {
+      const queued = await client.json("POST", "/api/agent-collaboration/submissions", batch([eventItem]));
+      const submissionId = queued.body.queued[0].submissionId;
+      const exported = await client.request("/api/agent-ingest/submissions/tournaments?limit=10", {
+        headers: { "X-Agent-Publish-Token": process.env.AGENT_PUBLISH_TOKEN }
+      });
+      assert.equal(exported.status, 200);
+      assert.equal(exported.body.data.length, 1);
+      assert.equal(exported.body.data[0].submissionId, submissionId);
+
+      const completed = await client.request("/api/agent-ingest/submissions/tournaments/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Agent-Publish-Token": process.env.AGENT_PUBLISH_TOKEN },
+        body: JSON.stringify({ outcomes: [{ submissionId, status: "published", reviewRunId: "shared-review-test", reasons: ["verified"] }] })
+      });
+      assert.equal(completed.status, 200);
+      assert.equal(completed.body.updated, 1);
+      assert.equal((await AgentSubmission.findOne({ submissionId }).lean()).status, "published");
+    } finally {
+      process.env.AGENT_PUBLISH_TOKEN = previous;
+    }
   });
 
   it("quarantines low-confidence submissions during weekly review", async () => {

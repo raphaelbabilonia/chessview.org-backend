@@ -2,7 +2,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const Event = require("../src/models/Event");
 const { resolveCuratedLocation } = require("../src/data/locationCoordinates");
-const { fetchEvents, geocodeLocation } = require("../src/scripts/backfillEventCoordinatesViaApi");
+const { cleanLocationPart, fetchEvents, geocodeLocation } = require("../src/scripts/backfillEventCoordinatesViaApi");
 const { applyEventCoordinateUpdates } = require("../src/services/eventCoordinateService");
 const { countryCodeFor, geocoderResultMatchesCountry } = require("../src/utils/geocodingSafety");
 
@@ -27,6 +27,11 @@ describe("coordinate location safety", () => {
     assert.equal(countryCodeFor("United Kingdom"), "gb");
     assert.equal(geocoderResultMatchesCountry({ address: { country_code: "es" } }, "Spain"), true);
     assert.equal(geocoderResultMatchesCountry({ address: { country_code: "mx" } }, "Spain"), false);
+  });
+
+  it("cleans query-only labels and postal noise without changing source fields", () => {
+    assert.equal(cleanLocationPart("City: 00100 Rome (venue TBC)", { city: true }), "Rome");
+    assert.equal(cleanLocationPart("Region: Lazio"), "Lazio");
   });
 
   it("fetches every production API page", async () => {
