@@ -11,7 +11,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/scripts/seed.js",
-    "test": "node --test \"test/*.test.js\" \"test/unit/*.test.js\" \"test/integration/*.test.js\" \"Codex Tournament Connectors/test/*.test.js\" \"Codex Tournament Pipeline/test/*.test.js\"",
+    "test": "node src/scripts/runTests.js",
     "coverage": "c8 --reporter=text --reporter=lcov node --test",
     "check:syntax": "node src/scripts/checkSyntax.js",
     "verify": "npm test && npm run check:syntax && npm audit --audit-level=moderate",
