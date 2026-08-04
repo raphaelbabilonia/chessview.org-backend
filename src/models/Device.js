@@ -13,7 +13,13 @@ const deviceSchema = new mongoose.Schema(
     },
     lastSeenAt: { type: Date, default: null },
     lastBatteryMv: { type: Number, default: null },
+    lastBatteryPercent: { type: Number, default: null },
+    lastCharging: { type: Boolean, default: null },
     lastRssi: { type: Number, default: null },
+    lastClockState: { type: String, default: "" },
+    lastActiveBroadcastId: { type: String, default: "" },
+    lastQueuedEvents: { type: Number, default: null },
+    lastFreeStorageBytes: { type: Number, default: null },
     notes: { type: String, default: "" }
   },
   { timestamps: true }

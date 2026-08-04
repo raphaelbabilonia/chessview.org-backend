@@ -8,6 +8,7 @@ const Event = require("../models/Event");
 const Frame = require("../models/Frame");
 const Pairing = require("../models/Pairing");
 const { canManageEvent, canViewEvent } = require("../utils/permissions");
+const { heartbeatSchema, frameUploadSchema } = require("../validation/deviceSchemas");
 
 const uploadRoot = path.join(__dirname, "..", "..", "uploads", "broadcast");
 
@@ -65,16 +66,31 @@ const authenticateDevice = async (req) => {
   return { device };
 };
 
+// Merge telemetry from a heartbeat *or* a frame upload onto the device. Only
+// fields actually present in the payload are written, so a frame upload (which
+// carries little telemetry) never clobbers the richer values from the last
+// heartbeat, and vice-versa.
 const updateDeviceTelemetry = async (device, body) => {
-  const data = {
-    firmwareVersion: body.firmwareVersion || device.firmwareVersion || "",
-    status: device.status === "new" ? "active" : device.status,
-    lastSeenAt: new Date(),
-    lastBatteryMv: numberOrNull(body.batteryMv),
-    lastRssi: numberOrNull(body.rssi)
-  };
+  device.lastSeenAt = new Date();
+  if (device.status === "new") device.status = "active";
+  if (body.firmwareVersion) device.firmwareVersion = body.firmwareVersion;
 
-  Object.assign(device, data);
+  const numeric = {
+    lastBatteryMv: body.batteryMv,
+    lastBatteryPercent: body.batteryPercent,
+    lastRssi: body.rssi,
+    lastQueuedEvents: body.queuedEvents,
+    lastFreeStorageBytes: body.freeStorageBytes
+  };
+  for (const [field, value] of Object.entries(numeric)) {
+    const parsed = numberOrNull(value);
+    if (parsed !== null) device[field] = parsed;
+  }
+
+  if (typeof body.charging === "boolean") device.lastCharging = body.charging;
+  if (body.clockState) device.lastClockState = body.clockState;
+  if (body.activeBroadcastId) device.lastActiveBroadcastId = String(body.activeBroadcastId);
+
   await device.save();
   return device;
 };
@@ -200,13 +216,77 @@ const listBroadcastFrames = async (req, res) => {
   res.json({ success: true, data: frames });
 };
 
+// Parses a request body against a zod schema, returning either { data } or a
+// { status, message } error shaped for the device endpoints (contract uses 400
+// for a bad payload, not the validate() middleware's 422).
+const parseBody = (schema, body) => {
+  const result = schema.safeParse(body);
+  if (result.success) return { data: result.data };
+  const flat = result.error.flatten();
+  const [field, messages] = Object.entries(flat.fieldErrors)[0] || [];
+  const message = messages ? `${field}: ${messages[0]}` : flat.formErrors[0] || "Invalid payload";
+  return { error: { status: 400, message } };
+};
+
+// ply 1 = white's first move, 2 = black's first, ... so an odd ply means white
+// just moved. moveNumber is the full-move counter (white 1 + black 1 both == 1).
+const sideFromPly = (ply) => (ply % 2 === 1 ? "white" : "black");
+const moveNumberFromPly = (ply) => Math.ceil(ply / 2);
+
+// The contract says the backend must store incoherent metadata but flag it,
+// rather than trusting or rejecting it. These are cheap sanity checks over the
+// values the device actually sent (not the ones we derive ourselves).
+const detectAnomalies = (data) => {
+  const anomalies = [];
+  if (data.ply !== undefined && data.sideJustMoved && data.sideJustMoved !== "unknown") {
+    if (sideFromPly(data.ply) !== data.sideJustMoved) anomalies.push("ply-side-mismatch");
+  }
+  if (data.ply !== undefined && data.moveNumber !== undefined) {
+    if (moveNumberFromPly(data.ply) !== data.moveNumber) anomalies.push("move-number-mismatch");
+  }
+  for (const [field, key] of [
+    ["negative-white-clock", "whiteRemainingMs"],
+    ["negative-black-clock", "blackRemainingMs"],
+    ["negative-move-duration", "moveDurationMs"]
+  ]) {
+    if (data[key] !== undefined && data[key] < 0) anomalies.push(field);
+  }
+  return anomalies;
+};
+
 const deviceHeartbeat = async (req, res) => {
   const { device, error } = await authenticateDevice(req);
   if (error) return res.status(error.status).json({ success: false, message: error.message });
 
-  const updated = await updateDeviceTelemetry(device, req.body);
-  res.json({ success: true, data: publicDevice(updated) });
+  const parsed = parseBody(heartbeatSchema, req.body);
+  if (parsed.error) {
+    return res.status(parsed.error.status).json({ success: false, message: parsed.error.message });
+  }
+
+  const updated = await updateDeviceTelemetry(device, parsed.data);
+  // Trimmed, device-facing shape per the clock->backend contract (not the full
+  // dashboard device object).
+  res.json({
+    success: true,
+    data: {
+      deviceId: updated.deviceId,
+      status: updated.status,
+      lastSeenAt: updated.lastSeenAt,
+      lastBatteryMv: updated.lastBatteryMv,
+      lastRssi: updated.lastRssi
+    }
+  });
 };
+
+// Shapes a stored frame into the contract's move-frame response. `deduplicated`
+// tells the device an idempotent retry hit an existing record.
+const frameResponse = (frame, deduplicated) => ({
+  frameId: frame._id,
+  imageClientId: frame.imageClientId || null,
+  imageUrl: frame.imageUrl,
+  status: frame.status,
+  deduplicated
+});
 
 const deviceFrameUpload = async (req, res) => {
   const { device, error } = await authenticateDevice(req);
@@ -219,15 +299,17 @@ const deviceFrameUpload = async (req, res) => {
     return res.status(400).json({ success: false, message: "JPEG image file is required" });
   }
 
-  const deviceSeq = Number(req.body.deviceSeq);
-  if (!Number.isInteger(deviceSeq) || deviceSeq <= 0) {
+  const parsed = parseBody(frameUploadSchema, req.body);
+  if (parsed.error) {
     removeUploadedFile(req.file);
-    return res.status(400).json({ success: false, message: "Valid deviceSeq is required" });
+    return res.status(parsed.error.status).json({ success: false, message: parsed.error.message });
   }
+  const data = parsed.data;
 
-  await updateDeviceTelemetry(device, req.body);
+  // Frame uploads also carry live telemetry (battery/rssi/firmware at capture).
+  await updateDeviceTelemetry(device, data);
 
-  const session = await BroadcastSession.findById(req.body.broadcastId);
+  const session = await BroadcastSession.findById(data.broadcastId);
   if (!session || session.status !== "live") {
     removeUploadedFile(req.file);
     return res.status(400).json({ success: false, message: "Broadcast is not live" });
@@ -236,40 +318,73 @@ const deviceFrameUpload = async (req, res) => {
     removeUploadedFile(req.file);
     return res.status(403).json({ success: false, message: "Device is not assigned to this broadcast" });
   }
-
-  const existing = await Frame.findOne({ device: device._id, deviceSeq });
-  if (existing) {
+  // If the device asserts a pairingId it must match the broadcast's game.
+  if (data.pairingId && String(session.pairing) !== String(data.pairingId)) {
     removeUploadedFile(req.file);
-    return res.json({
-      success: true,
-      data: {
-        frameId: existing._id,
-        imageUrl: existing.imageUrl,
-        status: existing.status
-      }
-    });
+    return res.status(409).json({ success: false, message: "pairingId does not match this broadcast" });
   }
 
-  const frame = await Frame.create({
+  // Idempotent retry: same (device, deviceSeq) or (device, imageClientId) returns
+  // the already-stored frame instead of creating a duplicate (flaky networking).
+  const dedupKeys = [{ device: device._id, deviceSeq: data.deviceSeq }];
+  if (data.imageClientId) dedupKeys.push({ device: device._id, imageClientId: data.imageClientId });
+  const existing = await Frame.findOne({ $or: dedupKeys });
+  if (existing) {
+    removeUploadedFile(req.file);
+    return res.json({ success: true, data: frameResponse(existing, true) });
+  }
+
+  // ply defaults to deviceSeq when the clock can't supply it; moveNumber is
+  // derived from whichever ply we end up with. sideJustMoved is only inferred
+  // when the device actually sent a ply (never fabricated from the fallback).
+  const ply = data.ply ?? data.deviceSeq;
+  const moveNumber = data.moveNumber ?? moveNumberFromPly(ply);
+  const sideJustMoved =
+    data.sideJustMoved ?? (data.ply !== undefined ? sideFromPly(data.ply) : "unknown");
+
+  const frameDoc = {
     broadcast: session._id,
     device: device._id,
-    deviceSeq,
-    capturedAt: req.body.capturedAt || new Date().toISOString(),
+    pairing: session.pairing,
+    deviceSeq: data.deviceSeq,
+    capturedAt: data.capturedAt || new Date().toISOString(),
+    imageCapturedAt: data.imageCapturedAt || "",
+    pressedAt: data.pressedAt || "",
     imageUrl: imageUrlForFile(req.file),
     mimeType: req.file.mimetype,
     sizeBytes: req.file.size,
-    batteryMv: numberOrNull(req.body.batteryMv),
-    rssi: numberOrNull(req.body.rssi),
-    firmwareVersion: req.body.firmwareVersion || ""
-  });
-  res.status(201).json({
-    success: true,
-    data: {
-      frameId: frame._id,
-      imageUrl: frame.imageUrl,
-      status: frame.status
+    width: data.imageWidth ?? null,
+    height: data.imageHeight ?? null,
+    jpegSha256: data.jpegSha256 || "",
+    ply,
+    moveNumber,
+    sideJustMoved,
+    sideToMove: data.sideToMove || "unknown",
+    whiteRemainingMs: data.whiteRemainingMs ?? null,
+    blackRemainingMs: data.blackRemainingMs ?? null,
+    moveDurationMs: data.moveDurationMs ?? null,
+    clockStateAfterPress: data.clockStateAfterPress || "unknown",
+    batteryMv: numberOrNull(data.batteryMv),
+    rssi: numberOrNull(data.rssi),
+    firmwareVersion: data.firmwareVersion || "",
+    anomalies: detectAnomalies(data)
+  };
+  if (data.imageClientId) frameDoc.imageClientId = data.imageClientId;
+
+  let frame;
+  try {
+    frame = await Frame.create(frameDoc);
+  } catch (err) {
+    // A concurrent retry can lose the create race and hit the unique index; treat
+    // it as the dedup case and return the winner instead of a 500.
+    if (err.code === 11000) {
+      removeUploadedFile(req.file);
+      const winner = await Frame.findOne({ $or: dedupKeys });
+      if (winner) return res.json({ success: true, data: frameResponse(winner, true) });
     }
-  });
+    throw err;
+  }
+  res.status(201).json({ success: true, data: frameResponse(frame, false) });
 };
 
 module.exports = {

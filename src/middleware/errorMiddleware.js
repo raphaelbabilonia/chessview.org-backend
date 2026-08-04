@@ -14,6 +14,13 @@ const errorMiddleware = (err, req, res, next) => {
     );
   }
 
+  // MongoDB duplicate-key (unique index) violation -> conflict, not a 500.
+  if (err.code === 11000) {
+    status = 409;
+    response.message = "Duplicate key";
+    if (err.keyValue) response.errors = err.keyValue;
+  }
+
   if (process.env.NODE_ENV !== "production" && status >= 500) {
     response.stack = err.stack;
   }
