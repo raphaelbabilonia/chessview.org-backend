@@ -12,9 +12,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Proprietary local discovery workspaces.
-# These can contain source lists, evidence, reviewed candidates, dedupe state,
-# approved/rejected data, and other ChessView operational intelligence.
+# Compatibility guard: operational workspaces now live in the private sibling
+# chessview.org-brain repository. Keep accidental backend recreations ignored.
 Codex News/
 Codex Tournaments/
 Codex Vesus API/

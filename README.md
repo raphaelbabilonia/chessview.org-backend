@@ -104,7 +104,7 @@ This runs the Node test suite, checks JavaScript syntax, and audits dependencies
 
 The backend does not run automatic scrapers, crawler jobs, or source-specific API importers. Public event data is created and updated through the ChessView API by organizers, admins, or supervised agentic workflows that review source material before publishing.
 
-Local discovery workspaces such as `Codex News/` and `Codex Tournaments/` are proprietary operational folders. They are ignored by Git and should not be committed to the public repository.
+Operational discovery, connector, review, outbox, and tracking workspaces live in the private sibling `chessview.org-brain` repository. This public backend remains authoritative for HTTP APIs, authentication, private ingest, and database writes. Temporary backend command shims preserve the established `agent:*` and `tracking:audit` interfaces by forwarding arguments and exit codes to that sibling checkout.
 
 Event records still preserve source and attribution fields such as `source`, `externalLinks`, `websiteUrl`, `resultsUrl`, and `regulationsUrl`. These fields are for curated/manual metadata and public links, not for backend-side automatic ingestion.
 
@@ -140,7 +140,7 @@ npm run events:coordinates:api -- --geocode --apply
 
 ## Tournament Acquisition Workflow
 
-Tournament collectors write only to ignored local queues. Codex review finalizers produce immutable, manifest-scoped outbox entries; the shared dispatcher is the only scheduled tournament publishing path:
+Tournament collectors run from `chessview.org-brain` and write only to its ignored local queues. Codex review finalizers produce immutable, manifest-scoped outbox entries; the brain's shared dispatcher is the only scheduled tournament publishing path. The following compatibility commands still work from this backend checkout:
 
 ```bash
 npm run agent:collect-tournaments
@@ -156,14 +156,14 @@ The deterministic connector portfolio prioritizes stable public APIs and officia
 
 ## News Discovery Workflow
 
-Use the local news automation to collect source-first article cards from RSS/Atom feeds and lightweight publisher metadata:
+Use the private sibling brain (or these temporary backend shims) to collect source-first article cards from RSS/Atom feeds and lightweight publisher metadata:
 
 ```bash
 npm run agent:discover-news
 npm run agent:publish -- --domain news --publish
 ```
 
-`agent:discover-news` reads `Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under the ignored `Codex News/` workspace, and requires publisher images. The default target is 20 items. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, or `--candidates-only` for review-only output.
+`agent:discover-news` reads `chessview.org-brain/Codex News/sources/priority-sources.json`, writes evidence, candidates, approved JSON, and dedupe state under that repository's ignored durable workspace, and requires publisher images. The default target is 20 items. Use `--target=50` for a larger run, `--source=chess-com-news,fide-news` to focus sources, or `--candidates-only` for review-only output.
 
 News articles require an absolute publisher image URL. Discovery, local publishing gates, API ingest, and public news queries all reject or hide records without images. The publish step also attempts to repair missing image fields from source-page metadata before rejecting a record. To remove older rows created before this rule, run a dry check first:
 

@@ -5,8 +5,6 @@ const { spawnSync } = require("child_process");
 const repositoryRoot = path.resolve(__dirname, "../..");
 const testRoots = [
   "test",
-  "Codex Tournament Connectors/test",
-  "Codex Tournament Pipeline/test",
 ];
 
 function findTestFiles(relativeRoot) {
