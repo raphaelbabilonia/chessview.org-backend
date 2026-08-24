@@ -266,11 +266,45 @@ const listEventCatalog = async (req, res) => {
     .sort({ startDate: 1 })
     .lean();
 
+  const compactEvents = events.map((event) => {
+    const location = event.location || {};
+    const logistics = event.metadata?.logistics || {};
+    const format = event.metadata?.format || {};
+    const coordinateCandidates = [
+      location.coordinates,
+      logistics.coordinates,
+      [location.longitude ?? location.lng, location.latitude ?? location.lat],
+      [logistics.longitude ?? logistics.lng, logistics.latitude ?? logistics.lat]
+    ];
+    const coordinates = coordinateCandidates.find(
+      (candidate) =>
+        Array.isArray(candidate) &&
+        candidate.length >= 2 &&
+        candidate.slice(0, 2).every((value) => Number.isFinite(Number(value)))
+    );
+
+    return {
+      _id: event._id,
+      title: event.title,
+      slug: event.slug,
+      city: event.city || location.city || logistics.city || "",
+      country: event.country || location.country || logistics.country || "",
+      region: event.region || location.region || location.province || logistics.region || logistics.province || "",
+      ...(coordinates ? { coordinates: coordinates.slice(0, 2).map(Number) } : {}),
+      startDate: event.startDate,
+      endDate: event.endDate,
+      status: event.status,
+      timeControl: event.timeControl || format.timeControlCategory || format.timeControl || format.speedLabel || "",
+      source: { name: event.source?.name || "" },
+      updatedAt: event.updatedAt
+    };
+  });
+
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
   return res.json({
     success: true,
-    data: events,
-    meta: { count: events.length }
+    data: compactEvents,
+    meta: { count: compactEvents.length }
   });
 };
 

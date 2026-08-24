@@ -168,6 +168,7 @@ describe("eventController", () => {
           endDate: daysFromNow(6),
           status: "published",
           isPublic: true,
+          timeControl: "",
           description: "Large description that the map does not need",
           metadata: {
             format: { timeControlCategory: "classical" },
@@ -188,11 +189,10 @@ describe("eventController", () => {
       assert.equal(res.body.data.some((item) => item.slug === "sunday-family-chess-festival"), false);
       assert.equal(res.body.data.some((item) => item.slug === "junior-rapid-challenge"), false);
       assert.equal("description" in event, false);
-      assert.equal("playerField" in event.metadata, false);
-      assert.deepEqual(event.metadata.logistics.coordinates, [7.551, 44.384]);
-      assert.equal(event.metadata.format.timeControlCategory, "classical");
-      assert.deepEqual(Object.keys(event.metadata.logistics), ["coordinates"]);
-      assert.deepEqual(Object.keys(event.metadata.format), ["timeControlCategory"]);
+      assert.equal("metadata" in event, false);
+      assert.equal("location" in event, false);
+      assert.deepEqual(event.coordinates, [7.551, 44.384]);
+      assert.equal(event.timeControl, "classical");
       assert.equal(res.body.meta.count, res.body.data.length);
       assert.match(res.headers["cache-control"], /stale-while-revalidate=300/);
     });
