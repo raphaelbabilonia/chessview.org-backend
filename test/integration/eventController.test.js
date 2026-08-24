@@ -159,6 +159,54 @@ describe("eventController", () => {
     });
   });
 
+  describe("GET /api/events/catalog", () => {
+    it("returns the active public map catalog in one compact response", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        {
+          startDate: daysFromNow(5),
+          endDate: daysFromNow(6),
+          status: "published",
+          isPublic: true,
+          description: "Large description that the map does not need",
+          metadata: {
+            format: { timeControlCategory: "classical" },
+            logistics: { coordinates: [7.551, 44.384] },
+            playerField: { expectedPlayers: 90 }
+          }
+        }
+      );
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        { startDate: daysFromNow(-6), endDate: daysFromNow(-5), status: "completed", isPublic: true }
+      );
+
+      const res = await client.request("/api/events/catalog");
+      assert.equal(res.status, 200);
+      const event = res.body.data.find((item) => item.slug === "chess-view-open-cuneo");
+      assert.ok(event, "active public event is returned");
+      assert.equal(res.body.data.some((item) => item.slug === "sunday-family-chess-festival"), false);
+      assert.equal(res.body.data.some((item) => item.slug === "junior-rapid-challenge"), false);
+      assert.equal("description" in event, false);
+      assert.equal("playerField" in event.metadata, false);
+      assert.deepEqual(event.metadata.logistics.coordinates, [7.551, 44.384]);
+      assert.equal(event.metadata.format.timeControlCategory, "classical");
+      assert.equal(res.body.meta.count, res.body.data.length);
+      assert.match(res.headers["cache-control"], /stale-while-revalidate=300/);
+    });
+
+    it("includes the public archive only when explicitly requested", async () => {
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        { startDate: daysFromNow(-6), endDate: daysFromNow(-5), status: "completed", isPublic: true }
+      );
+
+      const res = await client.request("/api/events/catalog?includePast=true");
+      assert.equal(res.status, 200);
+      assert.ok(res.body.data.some((item) => item.slug === "sunday-family-chess-festival"));
+    });
+  });
+
   describe("GET /api/events/:id", () => {
     it("resolves an event by slug and attaches the bundle", async () => {
       const res = await client.request("/api/events/chess-view-open-cuneo");

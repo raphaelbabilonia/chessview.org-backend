@@ -46,7 +46,11 @@ const reseed = () => seedDatabase();
 const makeClient = (base) => {
   const request = async (path, options = {}) => {
     const res = await fetch(`${base}${path}`, options);
-    return { status: res.status, body: await res.json() };
+    return {
+      status: res.status,
+      headers: Object.fromEntries(res.headers.entries()),
+      body: await res.json()
+    };
   };
   const json = (method, path, body, token) =>
     request(path, {

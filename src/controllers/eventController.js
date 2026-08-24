@@ -215,6 +215,50 @@ const listEvents = async (req, res) => {
   return sendEventList(res, data, total, pagination);
 };
 
+const listEventCatalog = async (req, res) => {
+  const filter = {
+    isPublic: true,
+    status: { $in: publicEventStatuses },
+    ...excludeSyntheticTestEventsQuery()
+  };
+  if (!booleanQuery(req.query.includePast)) {
+    filter.endDate = { $gte: startOfTodayUtc() };
+  }
+
+  const events = await Event.find(filter)
+    .select([
+      "_id",
+      "title",
+      "slug",
+      "city",
+      "country",
+      "region",
+      "location",
+      "coordinates",
+      "longitude",
+      "latitude",
+      "lng",
+      "lat",
+      "startDate",
+      "endDate",
+      "status",
+      "timeControl",
+      "source.name",
+      "metadata.logistics",
+      "metadata.format",
+      "updatedAt"
+    ].join(" "))
+    .sort({ startDate: 1 })
+    .lean();
+
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  return res.json({
+    success: true,
+    data: events,
+    meta: { count: events.length }
+  });
+};
+
 const getEvent = async (req, res) => {
   const query = mongoose.Types.ObjectId.isValid(req.params.id)
     ? { _id: req.params.id }
@@ -295,6 +339,7 @@ const deleteEvent = async (req, res) => {
 
 module.exports = {
   listEvents,
+  listEventCatalog,
   getEvent,
   createEvent,
   updateEvent,
