@@ -29,7 +29,8 @@ const errorMiddleware = (err, req, res, next) => {
     response.message = err.code === "LIMIT_FILE_SIZE" ? "Upload exceeds the allowed size" : "Invalid upload";
   }
 
-  logger.error("http.request_failed", {
+  const logFailure = status >= 500 ? logger.error : logger.warn;
+  logFailure("http.request_failed", {
     requestId: req.requestId,
     method: req.method,
     path: req.path,
