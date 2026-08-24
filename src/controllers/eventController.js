@@ -47,11 +47,10 @@ const parsePositiveInt = (value, fallback) => {
 };
 
 const paginationFromQuery = (query) => {
-  const enabled = query.limit !== undefined || query.page !== undefined;
   const limit = Math.min(parsePositiveInt(query.limit, 50), MAX_PUBLIC_LIMIT);
   const page = parsePositiveInt(query.page, 1);
   return {
-    enabled,
+    enabled: true,
     limit,
     page,
     skip: (page - 1) * limit
@@ -73,8 +72,17 @@ const applyPagination = (items, pagination) =>
 
 const sendEventList = (res, data, total, pagination) => {
   const payload = { success: true, data };
-  if (pagination.enabled) payload.meta = paginationMeta(total, pagination);
+  payload.meta = paginationMeta(total, pagination);
   return res.json(payload);
+};
+
+const eventCountMap = async (Model, eventIds) => {
+  if (!eventIds.length) return new Map();
+  const counts = await Model.aggregate([
+    { $match: { event: { $in: eventIds } } },
+    { $group: { _id: "$event", count: { $sum: 1 } } }
+  ]);
+  return new Map(counts.map((item) => [String(item._id), item.count]));
 };
 
 const makeSlug = async (title) => {
@@ -152,24 +160,59 @@ const listEvents = async (req, res) => {
     if (to) filter.startDate.$lte = to;
   }
 
-  let query = Event.find(filter).sort({ startDate: 1 });
+  let query = Event.find(filter)
+    .select([
+      "_id",
+      "title",
+      "slug",
+      "description",
+      "city",
+      "venueName",
+      "address",
+      "startDate",
+      "endDate",
+      "status",
+      "registrationStatus",
+      "timeControl",
+      "country",
+      "region",
+      "location",
+      "sourceOrganizerName",
+      "websiteUrl",
+      "resultsUrl",
+      "regulationsUrl",
+      "source",
+      "externalLinks",
+      "dataQualityScore",
+      "metadata",
+      "createdAt",
+      "updatedAt"
+    ].join(" "))
+    .sort({ startDate: 1 });
   if (pagination.enabled) {
     query = query.skip(pagination.skip).limit(pagination.limit);
   }
 
   const [events, total] = await Promise.all([
     query.lean(),
-    pagination.enabled ? Event.countDocuments(filter) : null
+    Event.countDocuments(filter)
   ]);
-  const data = await Promise.all(
-    events.map(async (event) => ({
+  const eventIds = events.map((event) => event._id);
+  const [sectionsByEvent, playersByEvent, roundsByEvent] = await Promise.all([
+    eventCountMap(Section, eventIds),
+    eventCountMap(Player, eventIds),
+    eventCountMap(Round, eventIds)
+  ]);
+  const data = events.map((event) => {
+    const eventId = String(event._id);
+    return {
       ...eventListItem(event),
-      sectionsCount: await Section.countDocuments({ event: event._id }),
-      playersCount: await Player.countDocuments({ event: event._id }),
-      roundsCount: await Round.countDocuments({ event: event._id })
-    }))
-  );
-  return sendEventList(res, data, total ?? data.length, pagination);
+      sectionsCount: sectionsByEvent.get(eventId) || 0,
+      playersCount: playersByEvent.get(eventId) || 0,
+      roundsCount: roundsByEvent.get(eventId) || 0
+    };
+  });
+  return sendEventList(res, data, total, pagination);
 };
 
 const getEvent = async (req, res) => {

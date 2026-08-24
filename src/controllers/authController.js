@@ -9,7 +9,7 @@ const signToken = (user) => {
       role: user.role
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    { algorithm: "HS256", expiresIn: process.env.JWT_EXPIRES_IN || "8h" }
   );
 };
 
@@ -38,7 +38,7 @@ const register = async (req, res) => {
     return res.status(409).json({ success: false, message: "Email is already registered" });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
   const user = await User.create({ name, email, passwordHash, role: "player" });
   sendAuth(res, user);
 };

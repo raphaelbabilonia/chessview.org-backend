@@ -77,5 +77,6 @@ const newsItemSchema = new mongoose.Schema(
 
 newsItemSchema.index({ canonicalUrl: 1 }, { unique: true });
 newsItemSchema.index({ sourceName: 1, originalId: 1 });
+newsItemSchema.index({ isPublic: 1, publishedAt: -1 });
 
 module.exports = mongoose.model("NewsItem", newsItemSchema);

@@ -28,8 +28,7 @@ const trackingEventSchema = new mongoose.Schema(
     filters: { type: mongoose.Schema.Types.Mixed, default: {} },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
     source: {
-      origin: { type: String, default: "" },
-      userAgent: { type: String, default: "" }
+      origin: { type: String, default: "" }
     }
   },
   { timestamps: true }

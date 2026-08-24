@@ -345,6 +345,20 @@ describe("broadcastController", () => {
       assert.equal(res.status, 415);
     });
 
+    it("415s spoofed JPEG content even when the MIME type claims image/jpeg", async () => {
+      const { deviceHeaders, broadcastId } = await liveBroadcast();
+      const form = new FormData();
+      form.append("broadcastId", broadcastId);
+      form.append("deviceSeq", "1");
+      form.append("image", new Blob([Buffer.from("<html>not an image</html>")], { type: "image/jpeg" }), "frame.jpg");
+      const res = await fetch(`${ctx.base}/api/device/frames`, {
+        method: "POST",
+        headers: deviceHeaders,
+        body: form
+      });
+      assert.equal(res.status, 415);
+    });
+
     it("413s a JPEG over the 2MB limit", async () => {
       const { deviceHeaders, broadcastId } = await liveBroadcast();
       const bigJpeg = Buffer.alloc(2 * 1024 * 1024 + 1, 0xff);

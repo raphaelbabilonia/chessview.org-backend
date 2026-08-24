@@ -116,5 +116,7 @@ const eventSchema = new mongoose.Schema(
 
 eventSchema.index({ slug: 1, organizer: 1 });
 eventSchema.index({ "source.name": 1, "source.originalId": 1 });
+eventSchema.index({ isPublic: 1, status: 1, endDate: 1, startDate: 1 });
+eventSchema.index({ organizer: 1, startDate: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);

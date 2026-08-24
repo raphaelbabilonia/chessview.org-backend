@@ -1,7 +1,7 @@
 const express = require("express");
+const crypto = require("crypto");
 const fs = require("fs");
 const multer = require("multer");
-const path = require("path");
 const {
   createDevice,
   deviceFrameUpload,
@@ -30,8 +30,7 @@ fs.mkdirSync(uploadRoot, { recursive: true });
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadRoot),
   filename: (req, file, cb) => {
-    const safeBase = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${safeBase}${path.extname(file.originalname || ".jpg") || ".jpg"}`);
+    cb(null, `${Date.now()}-${crypto.randomUUID()}.jpg`);
   }
 });
 
@@ -52,15 +51,36 @@ const upload = multer({
 // contract's HTTP codes: 413 for an oversized JPEG, 415 for a non-JPEG. Anything
 // else falls through to the shared error middleware.
 const uploadFrame = (req, res, next) => {
-  upload.single("image")(req, res, (err) => {
-    if (!err) return next();
-    if (err.code === "LIMIT_FILE_SIZE") {
+  upload.single("image")(req, res, async (err) => {
+    if (err?.code === "LIMIT_FILE_SIZE") {
       return res.status(413).json({ success: false, message: "JPEG exceeds the 2MB limit" });
     }
-    if (err.code === "UNSUPPORTED_MEDIA_TYPE") {
+    if (err?.code === "UNSUPPORTED_MEDIA_TYPE") {
       return res.status(415).json({ success: false, message: err.message });
     }
-    return next(err);
+    if (err) return next(err);
+    if (!req.file) return next();
+
+    try {
+      const handle = await fs.promises.open(req.file.path, "r");
+      const signature = Buffer.alloc(3);
+      try {
+        await handle.read(signature, 0, signature.length, 0);
+      } finally {
+        await handle.close();
+      }
+      const isJpeg = signature[0] === 0xff && signature[1] === 0xd8 && signature[2] === 0xff;
+      if (!isJpeg) {
+        await fs.promises.unlink(req.file.path).catch(() => {});
+        req.file = undefined;
+        return res.status(415).json({ success: false, message: "Only valid JPEG images are accepted" });
+      }
+      return next();
+    } catch (error) {
+      await fs.promises.unlink(req.file.path).catch(() => {});
+      req.file = undefined;
+      return next(error);
+    }
   });
 };
 

@@ -4,7 +4,7 @@ const { z } = require("zod");
 const registerSchema = z.object({
   name: z.string().trim().min(1),
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(10).max(128)
 });
 
 const loginSchema = z.object({

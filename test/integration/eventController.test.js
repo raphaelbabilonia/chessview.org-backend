@@ -36,6 +36,9 @@ describe("eventController", () => {
       assert.ok(!slugs.includes("sunday-family-chess-festival"), "past public event hidden by default");
       assert.ok(!slugs.includes("junior-rapid-challenge"), "draft+private hidden");
       assert.ok("sectionsCount" in res.body.data[0], "list carries denormalized counts");
+      assert.equal(res.body.meta.limit, 50, "public lists are bounded by default");
+      assert.equal(res.body.meta.page, 1);
+      assert.ok(res.body.data.length <= 50);
     });
 
     it("keeps event lists light while exposing metadata summaries", async () => {

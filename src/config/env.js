@@ -15,8 +15,8 @@ const validateEnv = () => {
     throw new Error("Invalid JWT_SECRET environment variable");
   }
 
-  if (process.env.JWT_SECRET.length < 32) {
-    throw new Error("JWT_SECRET should be minimum 32 char length random string");
+  if (process.env.JWT_SECRET.length < 64) {
+    throw new Error("JWT_SECRET must contain at least 64 random characters");
   }
 
   if (process.env.NODE_ENV === "production") {
@@ -26,6 +26,28 @@ const validateEnv = () => {
 
     if (!process.env.CLIENT_URLS && !process.env.CLIENT_URL) {
       throw new Error("CLIENT_URLS or CLIENT_URL is required in production");
+    }
+
+    const databaseName = new URL(process.env.MONGO_URI).pathname.replace(/^\//, "");
+    if (databaseName !== "chessview") {
+      throw new Error("MONGO_URI must target the isolated chessview database");
+    }
+
+    const origins = parseOrigins();
+    if (!origins.length || origins.some((origin) => !origin.startsWith("https://"))) {
+      throw new Error("Production client origins must use HTTPS");
+    }
+
+    if (!process.env.AGENT_PUBLISH_TOKEN || process.env.AGENT_PUBLISH_TOKEN.length < 48) {
+      throw new Error("AGENT_PUBLISH_TOKEN must contain at least 48 random characters");
+    }
+
+    if (process.env.AGENT_PUBLISH_TOKEN === process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET and AGENT_PUBLISH_TOKEN must be different");
+    }
+
+    if (process.env.TRACKING_ENABLED === "true" && (!process.env.TRACKING_SALT || process.env.TRACKING_SALT.length < 48)) {
+      throw new Error("TRACKING_SALT must contain at least 48 random characters when tracking is enabled");
     }
   }
 };

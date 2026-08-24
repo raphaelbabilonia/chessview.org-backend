@@ -1,9 +1,13 @@
+const multer = require("multer");
+const logger = require("../services/logger");
+
 const errorMiddleware = (err, req, res, next) => {
   let status = err.statusCode || err.status || 500;
 
   const response = {
     success: false,
-    message: err.message || "Server error"
+    message: status < 500 ? "Request rejected" : "Internal server error",
+    requestId: req.requestId
   };
 
   if (err.name === "ValidationError") {
@@ -18,12 +22,20 @@ const errorMiddleware = (err, req, res, next) => {
   if (err.code === 11000) {
     status = 409;
     response.message = "Duplicate key";
-    if (err.keyValue) response.errors = err.keyValue;
   }
 
-  if (process.env.NODE_ENV !== "production" && status >= 500) {
-    response.stack = err.stack;
+  if (err instanceof multer.MulterError) {
+    status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    response.message = err.code === "LIMIT_FILE_SIZE" ? "Upload exceeds the allowed size" : "Invalid upload";
   }
+
+  logger.error("http.request_failed", {
+    requestId: req.requestId,
+    method: req.method,
+    path: req.path,
+    status,
+    error: err
+  });
 
   res.status(status).json(response);
 };

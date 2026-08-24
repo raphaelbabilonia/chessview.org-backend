@@ -134,8 +134,7 @@ const mapEvent = (input, req) => {
     filters: compactRecord(input.filters),
     metadata: compactRecord(input.metadata),
     source: {
-      origin: cleanString(req.get("Origin"), 220),
-      userAgent: cleanString(ua, 320)
+      origin: cleanString(req.get("Origin"), 220)
     }
   };
 };
@@ -285,7 +284,7 @@ const getTrackingDashboard = async ({ days = 30 } = {}) => {
     TrackingEvent.find({ occurredAt: { $gte: since } })
       .sort({ occurredAt: -1 })
       .limit(50)
-      .select("-visitorHash -sessionHash -source.userAgent")
+      .select("-visitorHash -sessionHash")
       .lean()
   ]);
 

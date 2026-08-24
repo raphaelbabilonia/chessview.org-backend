@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.19.0"
+          node-version: "24.19.0"
           cache: npm
 
       - name: Install dependencies
@@ -30,6 +30,9 @@ jobs:
 
       - name: Run backend verification
         run: npm run verify
+
+      - name: Stamp deployment
+        run: printf '%s\n' '${{ github.sha }}' > .deployment-sha
 
       - name: Setup SSH key
         run: |
@@ -100,6 +103,8 @@ jobs:
             BACKUP_ROOT="/home/chessview-api/backups"
             BACKUP_DIR="$BACKUP_ROOT/api-$(date +%Y%m%d-%H%M%S)"
             LOCAL_HEALTH_URL="http://127.0.0.1:4000/api/health"
+            LOCAL_READY_URL="http://127.0.0.1:4000/api/ready"
+            NODE_BIN="/opt/chessview/runtimes/node/24/bin/node"
 
             if [ ! -d "$TEMP_DIR" ]; then
               echo "Temporary deploy directory not found: $TEMP_DIR"
@@ -108,6 +113,11 @@ jobs:
 
             if [ ! -f "$TEMP_DIR/package.json" ] || [ ! -f "$TEMP_DIR/src/server.js" ]; then
               echo "Uploaded API package is incomplete"
+              exit 1
+            fi
+
+            if [ ! -x "$NODE_BIN" ]; then
+              echo "Managed Node.js 24 runtime is missing: $NODE_BIN"
               exit 1
             fi
 
@@ -146,25 +156,6 @@ jobs:
             run_privileged rm -rf "$TEMP_DIR"
             run_privileged mkdir -p "$TARGET_DIR/uploads"
 
-            cat > /tmp/chessview-api-ecosystem.config.cjs << 'EOF'
-            module.exports = {
-              apps: [
-                {
-                  name: "chessview-api",
-                  script: "src/server.js",
-                  cwd: "/home/chessview-api/htdocs/api.chessview.org",
-                  instances: 1,
-                  exec_mode: "fork",
-                  env: {
-                    NODE_ENV: "production",
-                    PORT: "4000"
-                  }
-                }
-              ]
-            };
-            EOF
-            run_privileged mv /tmp/chessview-api-ecosystem.config.cjs "$TARGET_DIR/ecosystem.config.cjs"
-
             if id "$SITE_USER" >/dev/null 2>&1; then
               run_privileged chown -R "$SITE_USER:$SITE_USER" "$TARGET_DIR" "$BACKUP_ROOT"
             fi
@@ -173,10 +164,9 @@ jobs:
               run_privileged npm install -g pm2
             fi
 
-            run_as_site_user "cd '$TARGET_DIR' && npm ci --omit=dev --no-audit"
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/checkSyntax.js"
-            run_as_site_user "cd '$TARGET_DIR' && node src/scripts/pruneSyntheticTestEvents.js --delete"
-            run_as_site_user "cd '$TARGET_DIR' && pm2 startOrReload ecosystem.config.cjs --update-env"
+            run_as_site_user "export PATH='/opt/chessview/runtimes/node/24/bin':\$PATH; cd '$TARGET_DIR' && npm ci --omit=dev --no-audit"
+            run_as_site_user "cd '$TARGET_DIR' && '$NODE_BIN' src/scripts/checkSyntax.js"
+            run_as_site_user "pm2 delete '$APP_NAME' >/dev/null 2>&1 || true; cd '$TARGET_DIR' && pm2 start ecosystem.config.cjs --update-env"
             run_as_site_user "pm2 save || true"
 
             if [ "$(id -u)" -eq 0 ] && command -v pm2 >/dev/null 2>&1; then
@@ -186,7 +176,8 @@ jobs:
             LOCAL_STATUS="000"
             for attempt in $(seq 1 20); do
               LOCAL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$LOCAL_HEALTH_URL" || echo "000")
-              if [ "$LOCAL_STATUS" = "200" ]; then
+              READY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$LOCAL_READY_URL" || echo "000")
+              if [ "$LOCAL_STATUS" = "200" ] && [ "$READY_STATUS" = "200" ]; then
                 break
               fi
               sleep 3
@@ -200,15 +191,14 @@ jobs:
                   --exclude '.env' \
                   --exclude 'node_modules/' \
                   --exclude 'uploads/' \
+                  --exclude 'ecosystem.config.cjs' \
                   "$BACKUP_DIR"/ "$TARGET_DIR"/
-                run_as_site_user "cd '$TARGET_DIR' && npm ci --omit=dev --no-audit"
-                run_as_site_user "cd '$TARGET_DIR' && pm2 startOrReload ecosystem.config.cjs --update-env"
+                run_as_site_user "export PATH='/opt/chessview/runtimes/node/24/bin':\$PATH; cd '$TARGET_DIR' && npm ci --omit=dev --no-audit"
+                run_as_site_user "pm2 delete '$APP_NAME' >/dev/null 2>&1 || true; cd '$TARGET_DIR' && pm2 start ecosystem.config.cjs --update-env"
                 run_as_site_user "pm2 save || true"
               fi
               exit 1
             fi
-
-            run_as_site_user "cd '$TARGET_DIR' && CHESSVIEW_API_BASE_URL='https://api.chessview.org/api' node src/scripts/backfillEventCoordinatesViaApi.js --geocode --apply --max-geocode=500 --delay-ms=1200"
 
             if id "$SITE_USER" >/dev/null 2>&1; then
               run_privileged chown -R "$SITE_USER:$SITE_USER" "$TARGET_DIR" "$BACKUP_ROOT"
@@ -230,7 +220,9 @@ jobs:
           script: |
             set -e
             PUBLIC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.chessview.org/api/health || echo "000")
+            READY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.chessview.org/api/ready || echo "000")
             echo "https://api.chessview.org/api/health => HTTP $PUBLIC_STATUS"
-            if [ "$PUBLIC_STATUS" != "200" ]; then
+            echo "https://api.chessview.org/api/ready => HTTP $READY_STATUS"
+            if [ "$PUBLIC_STATUS" != "200" ] || [ "$READY_STATUS" != "200" ]; then
               exit 1
             fi

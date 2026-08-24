@@ -90,11 +90,32 @@ const metadataSummaryFor = (metadata = {}) => {
 const eventListItem = (event) => {
   const value = toPlain(event);
   if (!value) return null;
-  const metadataSummary = metadataSummaryFor(value.metadata);
-  const { metadata, ...rest } = value;
   return {
-    ...rest,
-    metadataSummary
+    _id: value._id,
+    title: value.title || "",
+    slug: value.slug || "",
+    description: value.description || "",
+    city: value.city || "",
+    venueName: value.venueName || "",
+    address: value.address || "",
+    startDate: value.startDate,
+    endDate: value.endDate,
+    status: value.status || "draft",
+    registrationStatus: value.registrationStatus || "closed",
+    timeControl: value.timeControl || "",
+    country: value.country || "",
+    region: value.region || "",
+    location: value.location || {},
+    sourceOrganizerName: value.sourceOrganizerName || "",
+    websiteUrl: value.websiteUrl || "",
+    resultsUrl: value.resultsUrl || "",
+    regulationsUrl: value.regulationsUrl || "",
+    source: value.source || {},
+    externalLinks: Array.isArray(value.externalLinks) ? value.externalLinks.slice(0, 20) : [],
+    dataQualityScore: value.dataQualityScore || 0,
+    metadataSummary: metadataSummaryFor(value.metadata),
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt
   };
 };
 
