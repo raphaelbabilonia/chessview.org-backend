@@ -191,6 +191,8 @@ describe("eventController", () => {
       assert.equal("playerField" in event.metadata, false);
       assert.deepEqual(event.metadata.logistics.coordinates, [7.551, 44.384]);
       assert.equal(event.metadata.format.timeControlCategory, "classical");
+      assert.deepEqual(Object.keys(event.metadata.logistics), ["coordinates"]);
+      assert.deepEqual(Object.keys(event.metadata.format), ["timeControlCategory"]);
       assert.equal(res.body.meta.count, res.body.data.length);
       assert.match(res.headers["cache-control"], /stale-while-revalidate=300/);
     });
