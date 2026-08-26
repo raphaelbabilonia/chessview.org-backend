@@ -1,6 +1,7 @@
 const cors = require("cors");
 const crypto = require("crypto");
 const express = require("express");
+const fs = require("fs");
 const { rateLimit } = require("express-rate-limit");
 const helmet = require("helmet");
 const mongoose = require("mongoose");
@@ -17,6 +18,19 @@ const { parseOrigins } = require("./config/env");
 const logger = require("./services/logger");
 
 const app = express();
+const processStartedAt = new Date().toISOString();
+
+const readDeploymentSha = () => {
+  const configured = String(process.env.DEPLOYMENT_SHA || process.env.GITHUB_SHA || "").trim();
+  if (configured) return configured;
+  try {
+    return fs.readFileSync(path.join(__dirname, "..", ".deployment-sha"), "utf8").trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+};
+
+const deploymentSha = readDeploymentSha();
 
 const allowedOrigins = parseOrigins();
 
@@ -105,26 +119,28 @@ app.use(
 const healthPayload = () => ({
   ok: true,
   service: "chessview-api",
+  deploymentSha,
+  startedAt: processStartedAt,
   uptimeSeconds: Math.floor(process.uptime())
+});
+
+const readinessPayload = (databaseReady) => ({
+  ok: databaseReady,
+  service: "chessview-api",
+  deploymentSha,
+  startedAt: processStartedAt,
+  dependencies: { database: databaseReady ? "up" : "down" }
 });
 
 app.get("/health", (req, res) => res.json(healthPayload()));
 app.get("/api/health", (req, res) => res.json(healthPayload()));
 app.get("/ready", (req, res) => {
   const databaseReady = mongoose.connection.readyState === 1;
-  res.status(databaseReady ? 200 : 503).json({
-    ok: databaseReady,
-    service: "chessview-api",
-    dependencies: { database: databaseReady ? "up" : "down" }
-  });
+  res.status(databaseReady ? 200 : 503).json(readinessPayload(databaseReady));
 });
 app.get("/api/ready", (req, res) => {
   const databaseReady = mongoose.connection.readyState === 1;
-  res.status(databaseReady ? 200 : 503).json({
-    ok: databaseReady,
-    service: "chessview-api",
-    dependencies: { database: databaseReady ? "up" : "down" }
-  });
+  res.status(databaseReady ? 200 : 503).json(readinessPayload(databaseReady));
 });
 
 app.get("/", (req, res) => {

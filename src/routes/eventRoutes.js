@@ -4,6 +4,7 @@ const {
   deleteEvent,
   getEvent,
   listEventCatalog,
+  listEventFacets,
   listEvents,
   updateEvent
 } = require("../controllers/eventController");
@@ -23,6 +24,7 @@ const authWhenMine = (req, res, next) => {
 
 router.get("/", authWhenMine, listEvents);
 router.get("/catalog", listEventCatalog);
+router.get("/facets", listEventFacets);
 router.get("/:id", optionalAuthMiddleware, getEvent);
 router.post("/", authMiddleware, requireRole("organizer", "admin"), validate(createEventSchema), createEvent);
 router.patch("/:id", authMiddleware, requireRole("organizer", "admin"), validateObjectId("id"), validate(updateEventSchema), updateEvent);

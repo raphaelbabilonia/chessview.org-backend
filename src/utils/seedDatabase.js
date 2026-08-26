@@ -8,6 +8,7 @@ const Registration = require("../models/Registration");
 const Player = require("../models/Player");
 const Round = require("../models/Round");
 const Pairing = require("../models/Pairing");
+const EventDocument = require("../models/EventDocument");
 const TrackingDailyAggregate = require("../models/TrackingDailyAggregate");
 const TrackingEvent = require("../models/TrackingEvent");
 const TrackingAutomationRun = require("../models/TrackingAutomationRun");
@@ -27,6 +28,7 @@ const seedDatabase = async () => {
     Player.deleteMany({}),
     Round.deleteMany({}),
     Pairing.deleteMany({}),
+    EventDocument.deleteMany({}),
     TrackingDailyAggregate.deleteMany({}),
     TrackingEvent.deleteMany({}),
     TrackingAutomationRun.deleteMany({})

@@ -2,6 +2,12 @@ const { describe, it, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { startTestServer, stopTestServer, reseed, makeClient, login } = require("../../test-helpers/server");
 const Event = require("../../src/models/Event");
+const EventDocument = require("../../src/models/EventDocument");
+const Pairing = require("../../src/models/Pairing");
+const Player = require("../../src/models/Player");
+const Round = require("../../src/models/Round");
+const Section = require("../../src/models/Section");
+const User = require("../../src/models/User");
 
 const daysFromNow = (days) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
@@ -157,6 +163,92 @@ describe("eventController", () => {
         false
       );
     });
+
+    it("supports time-control filtering and deterministic relevance and update sorting", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        {
+          title: "Cuneo Open",
+          startDate: daysFromNow(5),
+          endDate: daysFromNow(6),
+          status: "published",
+          isPublic: true,
+          timeControl: "classical"
+        }
+      );
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        {
+          title: "Festival near Cuneo",
+          city: "Cuneo",
+          startDate: daysFromNow(8),
+          endDate: daysFromNow(9),
+          status: "published",
+          isPublic: true,
+          timeControl: "rapid"
+        }
+      );
+
+      const filtered = await client.request("/api/events?timeControl=classical");
+      assert.equal(filtered.status, 200);
+      assert.deepEqual(filtered.body.data.map((event) => event.slug), ["chess-view-open-cuneo"]);
+
+      const relevant = await client.request("/api/events?search=Cuneo&sort=relevance");
+      assert.equal(relevant.status, 200);
+      assert.equal(relevant.body.data[0].slug, "chess-view-open-cuneo", "title match outranks city match");
+
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        { $set: { updatedAt: daysFromNow(2) } },
+        { timestamps: false }
+      );
+      const updated = await client.request("/api/events?sort=updated");
+      assert.equal(updated.status, 200);
+      assert.equal(updated.body.data[0].slug, "sunday-family-chess-festival");
+    });
+  });
+
+  describe("GET /api/events/facets", () => {
+    it("returns capped aggregate country, city, and time-control counts for eligible public events", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        {
+          startDate: daysFromNow(5),
+          endDate: daysFromNow(6),
+          status: "published",
+          isPublic: true,
+          country: "Italy",
+          city: "Cuneo",
+          timeControl: "classical"
+        }
+      );
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        {
+          startDate: daysFromNow(8),
+          endDate: daysFromNow(9),
+          status: "published",
+          isPublic: true,
+          country: "Italy",
+          city: "Cuneo",
+          timeControl: "rapid"
+        }
+      );
+
+      const res = await client.request("/api/events/facets");
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body.data.countries[0], { value: "Italy", count: 2 });
+      assert.deepEqual(res.body.data.cities[0], { value: "Cuneo", count: 2 });
+      assert.deepEqual(
+        res.body.data.timeControls,
+        [
+          { value: "classical", count: 1 },
+          { value: "rapid", count: 1 }
+        ]
+      );
+      assert.equal(res.body.meta.valuesLimit, 100);
+      assert.match(res.headers["cache-control"], /stale-while-revalidate=900/);
+    });
   });
 
   describe("GET /api/events/catalog", () => {
@@ -207,6 +299,41 @@ describe("eventController", () => {
       assert.equal(res.status, 200);
       assert.ok(res.body.data.some((item) => item.slug === "sunday-family-chess-festival"));
     });
+
+    it("marks only attributable, useful records as indexable and can filter to them", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        {
+          startDate: daysFromNow(5),
+          endDate: daysFromNow(6),
+          status: "published",
+          isPublic: true,
+          country: "Italy",
+          websiteUrl: "https://example.org/cuneo"
+        }
+      );
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        {
+          startDate: daysFromNow(8),
+          endDate: daysFromNow(9),
+          status: "published",
+          isPublic: true,
+          country: "Italy",
+          websiteUrl: "",
+          resultsUrl: "",
+          regulationsUrl: "",
+          externalLinks: [],
+          source: { name: "Unattributed", url: "" }
+        }
+      );
+
+      const res = await client.request("/api/events/catalog?indexableOnly=true");
+      assert.equal(res.status, 200);
+      assert.equal(res.body.data.some((item) => item.slug === "chess-view-open-cuneo"), true);
+      assert.equal(res.body.data.some((item) => item.slug === "sunday-family-chess-festival"), false);
+      assert.equal(res.body.data.every((item) => item.indexable === true), true);
+    });
   });
 
   describe("GET /api/events/:id", () => {
@@ -219,7 +346,7 @@ describe("eventController", () => {
       assert.ok(Array.isArray(ev.standings), "standings computed");
     });
 
-    it("exposes full tournament metadata on the event detail endpoint", async () => {
+    it("exposes useful allowlisted tournament metadata on the event detail endpoint", async () => {
       await Event.updateOne(
         { slug: "chess-view-open-cuneo" },
         {
@@ -298,13 +425,86 @@ describe("eventController", () => {
     });
 
     it("sanitizes public event bundles for anonymous callers", async () => {
+      const event = await Event.findOne({ slug: "chess-view-open-cuneo" });
+      await Event.updateOne(
+        { _id: event._id },
+        {
+          sourceOrganizerName: "Official Cuneo Chess Club",
+          sourceRefs: [{ sourceKey: "private-key", name: "Private audit source", url: "https://private.example" }],
+          dedupeKey: "private-dedupe-key",
+          source: {
+            name: "Official source",
+            url: "https://example.org/event",
+            originalId: "private-source-id",
+            detailStatus: "failed",
+            detailError: "private fetch trace"
+          },
+          metadata: {
+            enrichmentStatus: "complete",
+            format: { timeControlCategory: "classical", internal: "private format trace" },
+            logistics: { city: "Cuneo", raw: "private raw address" },
+            sourceAudit: { authority: "publisher", sourcesVisited: ["private audit trail"] },
+            reviewEvidence: { reviewer: "private reviewer" },
+            internal: { agentIdentity: "ChessView Agent Publisher" },
+            runId: "private-run-id"
+          }
+        }
+      );
+      await User.updateOne({ _id: event.organizer }, { name: "ChessView Agent Publisher" });
+      await Section.updateOne({ event: event._id }, { source: { name: "private section source", originalId: "section-private" } });
+      await Round.updateOne({ event: event._id }, { source: { name: "private round source", originalId: "round-private" } });
+      await Pairing.updateOne(
+        { event: event._id },
+        { notes: "private pairing note", source: { name: "private pairing source", originalId: "pairing-private" } }
+      );
+      await Player.updateOne(
+        { event: event._id },
+        { sourceMatches: ["private match trace"], source: { name: "private player source", originalId: "player-private" } }
+      );
+      await EventDocument.create([
+        {
+          event: event._id,
+          label: "Public regulations",
+          type: "regulations",
+          url: "https://example.org/regulations.pdf",
+          localPath: "C:\\private\\regulations.pdf",
+          error: "private document trace",
+          source: { name: "private document source", originalId: "document-private" }
+        },
+        {
+          event: event._id,
+          label: "Failed private document",
+          url: "https://example.org/failed.pdf",
+          status: "failed",
+          error: "private failure"
+        }
+      ]);
+
       const res = await client.request("/api/events/chess-view-open-cuneo");
       assert.equal(res.status, 200);
       assert.equal(res.body.data.registrations.length, 0, "public bundle omits registrations");
+      assert.deepEqual(res.body.data.organizer, { name: "Official Cuneo Chess Club" });
       assert.equal("email" in res.body.data.organizer, false, "organizer email is private");
       assert.equal("email" in res.body.data.players[0], false, "player email is private");
       assert.equal("birthYear" in res.body.data.players[0], false, "player birth year is private");
       assert.equal("email" in res.body.data.standings[0].player, false, "standings embed sanitized players");
+      assert.equal("dedupeKey" in res.body.data, false);
+      assert.equal("sourceRefs" in res.body.data, false);
+      assert.equal("sourceAudit" in res.body.data.metadata, false);
+      assert.equal("reviewEvidence" in res.body.data.metadata, false);
+      assert.equal("internal" in res.body.data.metadata.format, false);
+      assert.equal("raw" in res.body.data.metadata.logistics, false);
+      assert.equal("originalId" in res.body.data.source, false);
+      assert.equal("detailStatus" in res.body.data.source, false);
+      assert.equal("source" in res.body.data.sections[0], false);
+      assert.equal("source" in res.body.data.rounds[0], false);
+      assert.equal("notes" in res.body.data.pairings[0], false);
+      assert.equal("source" in res.body.data.pairings[0], false);
+      assert.equal("sourceMatches" in res.body.data.players[0], false);
+      assert.equal(res.body.data.documents.length, 1, "failed operational documents are hidden");
+      assert.equal("localPath" in res.body.data.documents[0], false);
+      assert.equal("error" in res.body.data.documents[0], false);
+      assert.equal("source" in res.body.data.documents[0], false);
     });
   });
 
