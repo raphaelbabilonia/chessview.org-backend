@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           npm prune --omit=dev --no-audit
-          tar -czf "$RUNNER_TEMP/chessview-api.tar.gz" --exclude=.git --exclude=.github --exclude=.env --exclude='.env.*' --exclude=uploads --exclude=coverage --exclude=test --exclude=test-helpers --exclude=docs --exclude=README.md --exclude=.gitignore .
+          tar -czf "$RUNNER_TEMP/chessview-api.tar.gz" --exclude=.git --exclude=.github --exclude=.env --exclude='.env.*' --exclude=uploads --exclude='Codex Tournament Pipeline' --exclude=coverage --exclude=test --exclude=test-helpers --exclude=docs --exclude=README.md --exclude=.gitignore .
 
       - name: Deploy through restricted KVM8 gateway
         env:
@@ -63,4 +63,5 @@ jobs:
         run: |
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 20 https://api.chessview.org/api/health
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 20 https://api.chessview.org/api/ready
+
 
