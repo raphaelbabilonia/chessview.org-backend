@@ -102,9 +102,13 @@ app.use(
   })
 );
 
+const deployment = require("./utils/deploymentInfo").deploymentInfo();
+const startedAt = new Date().toISOString();
 const healthPayload = () => ({
   ok: true,
   service: "chessview-api",
+  ...deployment,
+  startedAt,
   uptimeSeconds: Math.floor(process.uptime())
 });
 

@@ -61,7 +61,10 @@ jobs:
 
       - name: Verify public API
         run: |
+          set -euo pipefail
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 20 https://api.chessview.org/api/health
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 20 https://api.chessview.org/api/ready
+          DEPLOYED_SHA=$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 20 https://api.chessview.org/api/health | node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s).deploymentSha||""))')
+          test "$DEPLOYED_SHA" = "${{ github.sha }}"
 
 
