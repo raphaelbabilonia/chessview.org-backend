@@ -338,6 +338,95 @@ describe("agentIngestController", () => {
     assert.ok(merged.externalLinks.some((link) => link.url.includes("vesus.org")));
   });
 
+  it("keeps the primary facts when a corroborating source updates a merged record", async () => {
+    const created = await postIngest(client, "/api/agent-ingest/tournaments", { dryRun: false, runId: "primary", items: [tournamentItem] });
+    assert.equal(created.body.meta.created, 1);
+    const section = {
+      ...tournamentItem,
+      title: "Agent Test Open Section B",
+      endDate: "2026-10-10",
+      sourceName: "Rating List",
+      sourceUrl: "https://example.org/rating/42",
+      originalId: "rating-42",
+      dedupeKey: "rating:42",
+      metadata: { ...tournamentItem.metadata, sourceAudit: { authority: "rating calendar" } }
+    };
+    const event = await Event.findOne({ title: tournamentItem.title });
+    event.sourceKeys = [...(event.sourceKeys || []), "source:rating list:id:rating-42"];
+    await event.save();
+
+    const update = await postIngest(client, "/api/agent-ingest/tournaments", { dryRun: false, runId: "section", items: [section] });
+    assert.equal(update.body.meta.created, 0);
+    const kept = await Event.findById(event._id).lean();
+    assert.equal(kept.title, tournamentItem.title);
+    assert.equal(kept.endDate.toISOString().slice(0, 10), "2026-10-12");
+    assert.equal(kept.source.name, tournamentItem.sourceName);
+    assert.ok(kept.sourceRefs.some((ref) => ref.originalId === "rating-42"));
+  });
+
+  describe("reviewed duplicate resolution", () => {
+    const rival = {
+      ...tournamentItem,
+      title: "Rotary Skyway Rapid Chess Tournament 2026",
+      sourceUrl: "https://example.org/rotary",
+      websiteUrl: "https://example.org/rotary",
+      registrationUrl: "",
+      originalId: "fed-1",
+      dedupeKey: "fed:1",
+      venue: "Skyway Hall"
+    };
+    const held = {
+      ...tournamentItem,
+      title: "Phoenix Rising Chess Tournament 2026",
+      sourceUrl: "https://example.org/phoenix",
+      websiteUrl: "https://example.org/phoenix",
+      registrationUrl: "",
+      originalId: "fed-2",
+      dedupeKey: "fed:2",
+      venue: "Nexus Mall"
+    };
+    const ingest = (runId, items, dryRun = false) =>
+      postIngest(client, "/api/agent-ingest/tournaments", { dryRun, runId, items });
+
+    it("names the events behind an ambiguous rejection", async () => {
+      await ingest("rival", [rival]);
+      const response = await ingest("held", [held]);
+      assert.equal(response.body.meta.rejected, 1);
+      const [rejected] = response.body.rejected;
+      assert.match(rejected.reasons[0], /ambiguous possible duplicate/);
+      assert.equal(rejected.ambiguousEvents.length, 1);
+      assert.equal(rejected.ambiguousEvents[0].title, rival.title);
+      assert.ok(rejected.ambiguousEvents[0].id);
+    });
+
+    it("clears the fuzzy check only for the events a review names", async () => {
+      await ingest("rival", [rival]);
+      const rivalEvent = await Event.findOne({ title: rival.title }).lean();
+      const wrongId = "507f1f77bcf86cd799439011";
+      const wrong = await ingest("wrong", [{ ...held, reviewedDistinctFrom: [wrongId], reviewedDistinctReason: "different event" }]);
+      assert.equal(wrong.body.meta.rejected, 1);
+      const named = await ingest("named", [{ ...held, reviewedDistinctFrom: [String(rivalEvent._id)], reviewedDistinctReason: "different name, venue and federation id" }]);
+      assert.equal(named.body.meta.created, 1);
+      assert.equal(await Event.countDocuments({ title: held.title }), 1);
+    });
+
+    it("requires a recorded reason", async () => {
+      await ingest("rival", [rival]);
+      const rivalEvent = await Event.findOne({ title: rival.title }).lean();
+      const response = await ingest("no-reason", [{ ...held, reviewedDistinctFrom: [String(rivalEvent._id)] }]);
+      assert.equal(response.body.meta.rejected, 1);
+      assert.match(response.body.rejected[0].reasons.join(), /requires reviewedDistinctReason/);
+    });
+
+    it("never overrides an exact identity match", async () => {
+      await ingest("rival", [rival]);
+      const rivalEvent = await Event.findOne({ title: rival.title }).lean();
+      const response = await ingest("same-source", [{ ...rival, title: "Rotary Renamed", reviewedDistinctFrom: [String(rivalEvent._id)], reviewedDistinctReason: "attempted override" }]);
+      assert.equal(response.body.meta.created, 0);
+      assert.equal(await Event.countDocuments({ dedupeKey: rival.dedupeKey }), 1);
+    });
+  });
+
   it("preserves connector-supplied corroborating source references on create", async () => {
     const corroborated = {
       ...tournamentItem,

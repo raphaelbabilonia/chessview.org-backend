@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { mergedEventChanges, mergeProblems, parseArgs } = require("../../src/scripts/mergeDuplicateEvents");
 const plan = require("../../src/scripts/data/duplicate-event-merges-2026-11-05.json");
+const secondPlan = require("../../src/scripts/data/duplicate-event-merges-2026-11-05b.json");
 
 const keep = () => ({
   _id: "a",
@@ -72,4 +73,12 @@ test("the reviewed plan has nine pairs and no slug appears twice", () => {
   const slugs = plan.merges.flatMap(({ keep: kept, remove: removed }) => [kept, removed]);
   assert.equal(plan.merges.length, 9);
   assert.equal(new Set(slugs).size, slugs.length);
+});
+
+test("in the second plan no record is both kept and removed, or removed twice", () => {
+  const removed = secondPlan.merges.map((merge) => merge.remove);
+  const kept = new Set(secondPlan.merges.map((merge) => merge.keep));
+  assert.equal(new Set(removed).size, removed.length);
+  assert.equal(removed.some((slug) => kept.has(slug)), false);
+  assert.equal(removed.includes("3rd-cheadle-fide-blitz"), false);
 });

@@ -428,12 +428,16 @@ const hasMatchingSourceHash = (existing, item) =>
     (ref) => item.sourceKeys.includes(ref.sourceKey) && ref.contentHash && ref.contentHash === item.contentHash
   );
 
+const isPrimarySource = (existing, item) =>
+  normalizeText(existing?.source?.name) === normalizeText(item.sourceName) &&
+  Boolean(
+    (item.originalId && existing?.source?.originalId === item.originalId) ||
+      (item.sourceUrl && normalizeUrl(existing?.source?.url) === item.sourceUrl)
+  );
+
 const hasMatchingSource = (existing, item) => {
   const storedKeys = new Set(normalizeArray(existing?.sourceKeys));
-  if (item.sourceKeys.some((key) => storedKeys.has(key))) return true;
-  return normalizeText(existing?.source?.name) === normalizeText(item.sourceName) &&
-    ((item.originalId && existing?.source?.originalId === item.originalId) ||
-      (item.sourceUrl && normalizeUrl(existing?.source?.url) === item.sourceUrl));
+  return item.sourceKeys.some((key) => storedKeys.has(key)) || isPrimarySource(existing, item);
 };
 
 const findTournamentMatch = async (item) => {
@@ -455,7 +459,10 @@ const findTournamentMatch = async (item) => {
     startDate: { $gte: start, $lt: nextDay },
     ...(item.country ? { country: { $regex: `^${escapeRegex(item.country)}$`, $options: "i" } } : {})
   }).limit(25);
+  // A review may clear this fuzzy comparison only for the events it names. Exact identity matches stay above.
+  const reviewedDistinct = new Set(normalizeArray(item.reviewedDistinctFrom).map(String));
   const scored = candidates
+    .filter((existing) => !reviewedDistinct.has(String(existing._id)))
     .map((existing) => ({ existing, score: familySimilarity(item, existing) }))
     .filter(({ score }) => score >= 0.68)
     .sort((left, right) => right.score - left.score);
@@ -701,6 +708,9 @@ const ingestTournaments = async ({ items, dryRun = false }) => {
   for (const item of normalizedItems) {
     try {
       const reasons = ensureReady(item, { minConfidence: TOURNAMENT_CONFIDENCE_MIN, blockingFlags: COMMON_BLOCKING_FLAGS });
+      if (normalizeArray(item.reviewedDistinctFrom).length && !trimString(item.reviewedDistinctReason)) {
+        reasons.push("reviewedDistinctFrom requires reviewedDistinctReason");
+      }
       const sourceIdentity = tournamentSourceIdentity(item);
       if (identityCollisions.has(sourceIdentity)) reasons.push(identityCollisions.get(sourceIdentity));
       if (isSyntheticTestEvent(item)) reasons.push("synthetic/local test fixture is not allowed in production ingest");
@@ -719,7 +729,11 @@ const ingestTournaments = async ({ items, dryRun = false }) => {
         result.rejected.push({
           title: item.title,
           dedupeKey: item.dedupeKey || "",
-          reasons: ["ambiguous possible duplicate; manual review required"]
+          reasons: ["ambiguous possible duplicate; manual review required"],
+          ambiguousEvents: found.ambiguous.map((entry) => {
+            const event = entry.existing || entry;
+            return { id: String(event._id), title: event.title, slug: event.slug, score: entry.score };
+          })
         });
         continue;
       }
@@ -758,7 +772,9 @@ const ingestTournaments = async ({ items, dryRun = false }) => {
         continue;
       }
 
-      const preservePrimary = found.match === "family" && sourceAuthority(existing) >= sourceAuthority(item);
+      // A corroborating source must not replace the facts of the record it was merged into.
+      const preservePrimary = Boolean(existing) && (found.match === "family" || !isPrimarySource(existing, item)) &&
+        sourceAuthority(existing) >= sourceAuthority(item);
       const payload = await mapTournament(item, organizer, existing, { preservePrimary });
       if (existing) {
         Object.assign(existing, payload);
