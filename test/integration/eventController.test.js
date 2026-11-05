@@ -34,6 +34,19 @@ describe("eventController", () => {
       assert.equal(res.body.data.find((event) => event.slug === "junior-rapid-challenge").seasonUnderway, undefined);
     });
 
+    it("lists the most recently added events first when asked", async () => {
+      await Event.updateOne({ slug: "chess-view-open-cuneo" }, { ...openPublic, startDate: daysFromNow(90), endDate: daysFromNow(92) });
+      await Event.updateOne({ slug: "sunday-family-chess-festival" }, { ...openPublic, startDate: daysFromNow(5), endDate: daysFromNow(6) });
+      await Event.collection.updateOne({ slug: "chess-view-open-cuneo" }, { $set: { createdAt: new Date() } });
+      await Event.collection.updateOne({ slug: "sunday-family-chess-festival" }, { $set: { createdAt: daysFromNow(-30) } });
+
+      const res = await client.request("/api/events?sort=recent&limit=50");
+      const order = res.body.data.map((event) => event.slug);
+
+      assert.ok(order.indexOf("chess-view-open-cuneo") < order.indexOf("sunday-family-chess-festival"), "newest added leads, however far away it starts");
+      assert.ok("metadataSummary" in res.body.data[0]);
+    });
+
     it("keeps the event card shape when ordered through the public list", async () => {
       await Event.updateOne({ slug: "chess-view-open-cuneo" }, { ...openPublic, startDate: daysFromNow(10), endDate: daysFromNow(12) });
       const res = await client.request("/api/events?limit=1&page=1");
