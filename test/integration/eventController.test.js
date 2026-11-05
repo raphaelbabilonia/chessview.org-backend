@@ -19,6 +19,70 @@ describe("eventController", () => {
   });
 
   describe("GET /api/events", () => {
+    const openPublic = { status: "published", isPublic: true };
+
+    it("puts upcoming and current events ahead of leagues already under way", async () => {
+      await Event.updateOne({ slug: "chess-view-open-cuneo" }, { ...openPublic, startDate: daysFromNow(10), endDate: daysFromNow(12) });
+      await Event.updateOne({ slug: "sunday-family-chess-festival" }, { ...openPublic, startDate: daysFromNow(-2), endDate: daysFromNow(2) });
+      await Event.updateOne({ slug: "junior-rapid-challenge" }, { ...openPublic, startDate: daysFromNow(-100), endDate: daysFromNow(100) });
+
+      const res = await client.request("/api/events");
+      const order = res.body.data.map((event) => event.slug);
+
+      assert.ok(order.indexOf("sunday-family-chess-festival") < order.indexOf("chess-view-open-cuneo"), "a current event stays first");
+      assert.ok(order.indexOf("chess-view-open-cuneo") < order.indexOf("junior-rapid-challenge"), "a started league goes last");
+      assert.equal(res.body.data.find((event) => event.slug === "junior-rapid-challenge").seasonUnderway, undefined);
+    });
+
+    it("keeps the event card shape when ordered through the public list", async () => {
+      await Event.updateOne({ slug: "chess-view-open-cuneo" }, { ...openPublic, startDate: daysFromNow(10), endDate: daysFromNow(12) });
+      const res = await client.request("/api/events?limit=1&page=1");
+      assert.equal(res.status, 200);
+      assert.ok(res.body.data[0].slug);
+      assert.ok("metadataSummary" in res.body.data[0]);
+      assert.ok(res.body.meta.total >= 1);
+    });
+
+    it("applies the time control filter and searches location as well as title", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        { ...openPublic, startDate: daysFromNow(10), endDate: daysFromNow(12), timeControl: "Blitz", country: "Zanzibar" }
+      );
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        { ...openPublic, startDate: daysFromNow(11), endDate: daysFromNow(12), timeControl: "Classical" }
+      );
+
+      const blitz = await client.request("/api/events?timeControl=blitz");
+      assert.deepEqual(blitz.body.data.map((event) => event.slug), ["chess-view-open-cuneo"]);
+      assert.equal(blitz.body.meta.total, 1);
+
+      const byCountry = await client.request("/api/events?search=zanzibar");
+      assert.deepEqual(byCountry.body.data.map((event) => event.slug), ["chess-view-open-cuneo"]);
+    });
+
+    it("marks catalog events indexable so the sitemap can list them", async () => {
+      await Event.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        { ...openPublic, startDate: daysFromNow(10), endDate: daysFromNow(12), city: "Cuneo", websiteUrl: "https://example.org/open" }
+      );
+      await Event.updateOne(
+        { slug: "sunday-family-chess-festival" },
+        { ...openPublic, startDate: daysFromNow(10), endDate: daysFromNow(12), websiteUrl: "", resultsUrl: "", regulationsUrl: "", externalLinks: [], source: {} }
+      );
+
+      const all = await client.request("/api/events/catalog");
+      const indexable = (slug) => all.body.data.find((event) => event.slug === slug)?.indexable;
+      assert.equal(indexable("chess-view-open-cuneo"), true);
+      assert.equal(indexable("sunday-family-chess-festival"), false);
+      assert.equal(all.body.data.find((event) => event.slug === "chess-view-open-cuneo").websiteUrl, undefined, "catalog stays compact");
+
+      const onlyIndexable = await client.request("/api/events/catalog?includePast=true&indexableOnly=true");
+      assert.ok(onlyIndexable.body.data.every((event) => event.indexable));
+      assert.ok(onlyIndexable.body.data.some((event) => event.slug === "chess-view-open-cuneo"));
+      assert.equal(onlyIndexable.body.meta.count, onlyIndexable.body.data.length);
+    });
+
     it("lists only active public events to anonymous callers by default", async () => {
       await Event.updateOne(
         { slug: "chess-view-open-cuneo" },

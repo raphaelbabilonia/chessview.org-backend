@@ -8,12 +8,52 @@ const Registration = require("../models/Registration");
 const EventDocument = require("../models/EventDocument");
 const calculateStandings = require("../utils/calculateStandings");
 const { canManageEvent, canViewEvent, publicEventStatuses } = require("../utils/permissions");
-const { eventListItem, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
+const { eventListItem, isIndexableEvent, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
 const slugify = require("../utils/slugify");
 const { excludeSyntheticTestEventsQuery, isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
 
 const MAX_PUBLIC_LIMIT = 100;
 const MAX_TEXT_FILTER_LENGTH = 120;
+const SEASON_LONG_MS = 30 * 24 * 60 * 60 * 1000;
+const PUBLIC_SEARCH_FIELDS = ["title", "city", "country", "source.name"];
+const TIME_CONTROL_FIELDS = [
+  "timeControl",
+  "metadata.format.timeControl",
+  "metadata.format.timeControlCategory",
+  "metadata.format.speedLabel"
+];
+const EVENT_LIST_FIELDS = [
+  "_id",
+  "title",
+  "slug",
+  "description",
+  "city",
+  "venueName",
+  "address",
+  "startDate",
+  "endDate",
+  "status",
+  "registrationStatus",
+  "timeControl",
+  "country",
+  "region",
+  "location.coordinates",
+  "location.longitude",
+  "location.latitude",
+  "location.lng",
+  "location.lat",
+  "location.province",
+  "sourceOrganizerName",
+  "websiteUrl",
+  "resultsUrl",
+  "regulationsUrl",
+  "source",
+  "externalLinks",
+  "dataQualityScore",
+  "metadata",
+  "createdAt",
+  "updatedAt"
+];
 
 const startOfTodayUtc = () => {
   const now = new Date();
@@ -39,6 +79,36 @@ const queryDate = (value) => {
   const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? null : date;
 };
+
+const matchesAnyField = (fields, value) => ({
+  $or: fields.map((field) => ({ [field]: literalRegex(value) }))
+});
+
+// Leagues that began months ago must not bury tournaments people can still enter,
+// while an ordinary event running this week stays near the top.
+const upcomingFirstEvents = (filter, pagination, today) =>
+  Event.aggregate([
+    { $match: filter },
+    {
+      $addFields: {
+        seasonUnderway: {
+          $cond: [
+            {
+              $and: [
+                { $lt: ["$startDate", today] },
+                { $gt: [{ $subtract: ["$endDate", "$startDate"] }, SEASON_LONG_MS] }
+              ]
+            },
+            1,
+            0
+          ]
+        }
+      }
+    },
+    { $sort: { seasonUnderway: 1, startDate: 1, _id: 1 } },
+    ...(pagination.enabled ? [{ $skip: pagination.skip }, { $limit: pagination.limit }] : []),
+    { $project: Object.fromEntries(EVENT_LIST_FIELDS.map((field) => [field, 1])) }
+  ]);
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number(value);
@@ -126,6 +196,7 @@ const listEvents = async (req, res) => {
   const country = queryText(req.query.country);
   const source = queryText(req.query.source);
   const status = queryText(req.query.status);
+  const timeControl = queryText(req.query.timeControl);
   const activeFrom = queryDate(req.query.activeFrom);
   const from = queryDate(req.query.from);
   const to = queryDate(req.query.to);
@@ -141,7 +212,12 @@ const listEvents = async (req, res) => {
     Object.assign(filter, excludeSyntheticTestEventsQuery());
   }
 
-  if (search) filter.title = literalRegex(search);
+  const textFilters = [
+    ...(search && !mine ? [matchesAnyField(PUBLIC_SEARCH_FIELDS, search)] : []),
+    ...(timeControl ? [matchesAnyField(TIME_CONTROL_FIELDS, timeControl)] : [])
+  ];
+  if (textFilters.length) filter.$and = [...(filter.$and || []), ...textFilters];
+  if (search && mine) filter.title = literalRegex(search);
   if (city) filter.city = literalRegex(city);
   if (country) filter.country = literalRegex(country);
   if (source) filter["source.name"] = literalRegex(source);
@@ -160,46 +236,15 @@ const listEvents = async (req, res) => {
     if (to) filter.startDate.$lte = to;
   }
 
-  let query = Event.find(filter)
-    .select([
-      "_id",
-      "title",
-      "slug",
-      "description",
-      "city",
-      "venueName",
-      "address",
-      "startDate",
-      "endDate",
-      "status",
-      "registrationStatus",
-      "timeControl",
-      "country",
-      "region",
-      "location.coordinates",
-      "location.longitude",
-      "location.latitude",
-      "location.lng",
-      "location.lat",
-      "location.province",
-      "sourceOrganizerName",
-      "websiteUrl",
-      "resultsUrl",
-      "regulationsUrl",
-      "source",
-      "externalLinks",
-      "dataQualityScore",
-      "metadata",
-      "createdAt",
-      "updatedAt"
-    ].join(" "))
-    .sort({ startDate: 1 });
-  if (pagination.enabled) {
-    query = query.skip(pagination.skip).limit(pagination.limit);
+  let query = upcomingFirstEvents(filter, pagination, activeFrom || startOfTodayUtc());
+  if (mine) {
+    query = Event.find(filter).select(EVENT_LIST_FIELDS.join(" ")).sort({ startDate: 1 });
+    if (pagination.enabled) query = query.skip(pagination.skip).limit(pagination.limit);
+    query = query.lean();
   }
 
   const [events, total] = await Promise.all([
-    query.lean(),
+    query,
     Event.countDocuments(filter)
   ]);
   const eventIds = events.map((event) => event._id);
@@ -248,7 +293,12 @@ const listEventCatalog = async (req, res) => {
       "endDate",
       "status",
       "timeControl",
+      "websiteUrl",
+      "resultsUrl",
+      "regulationsUrl",
+      "externalLinks",
       "source.name",
+      "source.url",
       "metadata.logistics.coordinates",
       "metadata.logistics.longitude",
       "metadata.logistics.latitude",
@@ -296,15 +346,17 @@ const listEventCatalog = async (req, res) => {
       status: event.status,
       timeControl: event.timeControl || format.timeControlCategory || format.timeControl || format.speedLabel || "",
       source: { name: event.source?.name || "" },
+      indexable: isIndexableEvent(event),
       updatedAt: event.updatedAt
     };
   });
+  const data = booleanQuery(req.query.indexableOnly) ? compactEvents.filter((event) => event.indexable) : compactEvents;
 
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
   return res.json({
     success: true,
-    data: compactEvents,
-    meta: { count: compactEvents.length }
+    data,
+    meta: { count: data.length }
   });
 };
 
