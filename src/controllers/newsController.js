@@ -3,6 +3,22 @@ const NewsItem = require("../models/NewsItem");
 const { publicNewsImageQuery } = require("../utils/newsImagePolicy");
 
 const MAX_NEWS_LIMIT = 100;
+const MAX_TEXT_FILTER_LENGTH = 120;
+const NEWS_SEARCH_FIELDS = ["title", "summary", "sourceName", "author", "category", "tags", "relatedTournamentName", "relatedPlayerNames"];
+
+const firstQueryValue = (value) => (Array.isArray(value) ? value[0] : value);
+
+const queryText = (value) =>
+  String(firstQueryValue(value) || "")
+    .trim()
+    .slice(0, MAX_TEXT_FILTER_LENGTH);
+
+const literalRegex = (value) => new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+
+const pageMeta = (total, page, limit) => {
+  const pages = Math.max(Math.ceil(total / limit), 1);
+  return { page, pages, limit, hasNext: page < pages, hasPrev: page > 1 };
+};
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number(value);
@@ -69,10 +85,24 @@ const getDbNewsSources = (items) =>
 const listNews = async (req, res) => {
   const limit =
     req.query.limit === undefined ? MAX_NEWS_LIMIT : Math.min(parsePositiveInt(req.query.limit, MAX_NEWS_LIMIT), MAX_NEWS_LIMIT);
-  const total = await NewsItem.countDocuments(publicNewsQuery);
-  if (total > 0) {
-    const [dbItems, sourceItems] = await Promise.all([
-      NewsItem.find(publicNewsQuery).sort({ publishedAt: -1, createdAt: -1 }).limit(limit).lean(),
+  const page = parsePositiveInt(req.query.page, 1);
+  const search = queryText(req.query.search);
+  const source = queryText(req.query.source);
+  const available = await NewsItem.countDocuments(publicNewsQuery);
+  if (available > 0) {
+    const filters = [
+      publicNewsQuery,
+      ...(search ? [{ $or: NEWS_SEARCH_FIELDS.map((field) => ({ [field]: literalRegex(search) })) }] : []),
+      ...(source ? [{ sourceName: new RegExp(`^${literalRegex(source).source}$`, "i") }] : [])
+    ];
+    const filter = filters.length > 1 ? { $and: filters } : publicNewsQuery;
+    const [dbItems, total, sourceItems] = await Promise.all([
+      NewsItem.find(filter)
+        .sort({ publishedAt: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      NewsItem.countDocuments(filter),
       NewsItem.find(publicNewsQuery).select("sourceName sourceHomeUrl").lean()
     ]);
     const data = dbItems.map(serializeNews);
@@ -82,6 +112,7 @@ const listNews = async (req, res) => {
       meta: {
         count: data.length,
         total,
+        ...pageMeta(total, page, limit),
         sources: getDbNewsSources(sourceItems)
       }
     });
@@ -95,6 +126,7 @@ const listNews = async (req, res) => {
     meta: {
       count: data.length,
       total: newsItems.length,
+      ...pageMeta(data.length, 1, limit),
       sources: getNewsSources(newsItems)
     }
   });

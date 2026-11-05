@@ -119,8 +119,29 @@ const eventListItem = (event) => {
   };
 };
 
+// The website builds its sitemap from this rule: a page is worth indexing when it
+// points somewhere real, and an old event only while its results remain useful.
+const isIndexableEvent = (event, now = new Date()) => {
+  if (!event?.title || !event?.slug || !event?.startDate || !event?.endDate) return false;
+  const hasLocation = Boolean(event.city || event.country || event.location?.city || event.metadata?.logistics?.city);
+  const hasSource = Boolean(
+    event.websiteUrl ||
+      event.resultsUrl ||
+      event.regulationsUrl ||
+      event.source?.url ||
+      (event.externalLinks || []).some((link) => link?.url)
+  );
+  if (!hasLocation || !hasSource) return false;
+  const endDate = new Date(event.endDate);
+  if (Number.isNaN(endDate.getTime())) return false;
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setUTCFullYear(oneYearAgo.getUTCFullYear() - 1);
+  return endDate >= oneYearAgo || Boolean(event.resultsUrl);
+};
+
 module.exports = {
   eventListItem,
+  isIndexableEvent,
   metadataSummaryFor,
   publicOrganizer,
   publicPlayer
