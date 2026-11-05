@@ -1,0 +1,15 @@
+{
+  "reviewedAt": "2026-11-05",
+  "rule": "Keep the record linking to the organizer or federation, and fill its blank fields from the copy removed. SPICE Cup end date confirmed as 2026-11-09 on the FIDE event page.",
+  "merges": [
+    { "keep": "20th-annual-spice-cup-open", "remove": "2026-spice-cup" },
+    { "keep": "24th-annual-turkey-bowl", "remove": "24th-annual-turkey-bowl-2" },
+    { "keep": "43rd-bolton-rapidplay-2026", "remove": "43rd-bolton-rapidplay-2026-2" },
+    { "keep": "munchen-chess-happening", "remove": "muenchen-chess-happening-2026" },
+    { "keep": "vii-open-internacional-de-ajedrez-dama-negra", "remove": "vii-open-internacional-de-ajedrez-dama-negra-2" },
+    { "keep": "gm-mix-chess-festival-january-2027", "remove": "fantastico-senta-festival-3-10-january-2027-gm-mix-31-open-34-blitz-a-b" },
+    { "keep": "gm-mix-chess-festival-2027-january-2", "remove": "fantastico-senta-festival-10-17-january-2027-gm-mix-32-open-35-rapid-36-blitz-c-d" },
+    { "keep": "gm-mix-chess-festival-2027-january", "remove": "fantastico-senta-festival-18-23-january-2027-gm-mix-33-blitz-e" },
+    { "keep": "ii-open-internacional-d-hivern", "remove": "ii-open-internacional-d-hivern-2" }
+  ]
+}
