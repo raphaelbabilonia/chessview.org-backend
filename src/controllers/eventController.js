@@ -237,8 +237,11 @@ const listEvents = async (req, res) => {
   }
 
   let query = upcomingFirstEvents(filter, pagination, activeFrom || startOfTodayUtc());
-  if (mine) {
-    query = Event.find(filter).select(EVENT_LIST_FIELDS.join(" ")).sort({ startDate: 1 });
+  const newestAdded = !mine && queryText(req.query.sort) === "recent";
+  if (mine || newestAdded) {
+    query = Event.find(filter)
+      .select(EVENT_LIST_FIELDS.join(" "))
+      .sort(newestAdded ? { createdAt: -1, _id: -1 } : { startDate: 1 });
     if (pagination.enabled) query = query.skip(pagination.skip).limit(pagination.limit);
     query = query.lean();
   }
