@@ -1,0 +1,290 @@
+{
+  "reviewedAt": "2026-11-05",
+  "rule": "Cross-source records for one event, or FIDE section records of a festival. Keep the longest record from the most authoritative source, and fill its blank fields. Separate events and unclear pairs are excluded.",
+  "merges": [
+    {
+      "keep": "circuito-elo-blitz-46a-prova",
+      "remove": "op-46-circuito-elo-blitz"
+    },
+    {
+      "keep": "vesuvio-chess-festival-2026-ix-edizione",
+      "remove": "we-9-vesuvio-chess-festival"
+    },
+    {
+      "keep": "iii-nocny-maraton-szachowy-o-puchar-burmistrza-szczytnej",
+      "remove": "iii-nocny-maraton-szachowy-o-puchar-burmistrza-szczytnej-1"
+    },
+    {
+      "keep": "torneo-internazionale-di-pavia-montepremi-6000-euro",
+      "remove": "we-pavia-2026-a"
+    },
+    {
+      "keep": "torneo-internazionale-di-pavia-montepremi-6000-euro",
+      "remove": "we-pavia-2026-b"
+    },
+    {
+      "keep": "gran-rapid-d-autunno-iii-edizione",
+      "remove": "op-3-gran-rapid-d-autunno"
+    },
+    {
+      "keep": "isle-of-wight-ocean-tournament-2026",
+      "remove": "isle-of-wight-ocean-tournament-2026-weekday-event-open"
+    },
+    {
+      "keep": "3-torneo-como",
+      "remove": "op-3-como"
+    },
+    {
+      "keep": "xix-festival-naviglio-martesana",
+      "remove": "we-19-naviglio-martesana-a"
+    },
+    {
+      "keep": "xix-festival-naviglio-martesana",
+      "remove": "we-19-naviglio-martesana-b"
+    },
+    {
+      "keep": "6-torneo-weekend-torri-d-acaja-memorial-laura-novellini",
+      "remove": "op-6-torri-d-acaja-memorial-laura-novellini"
+    },
+    {
+      "keep": "iv-ogolnopolskie-grand-prix-kozuchowa-grupa-a-iv-fina-owy-turniej",
+      "remove": "iv-ogolnopolskie-grand-prix-kozuchowa-turniej-4"
+    },
+    {
+      "keep": "xvi-otwarte-mistrzostwa-szachowe-o-puchar-zabiego-kraju-turniej-4",
+      "remove": "xvi-otwarte-mistrzostwa-szachowe-o-puchar-zabiego-kraju-strumien-2026-turniej-4"
+    },
+    {
+      "keep": "58th-torbay-chess-congress",
+      "remove": "58th-torbay-chess-congress-open"
+    },
+    {
+      "keep": "12-rapid-fide-asr-2026",
+      "remove": "1-festival-delle-due-citta-materalta-2"
+    },
+    {
+      "keep": "davos-ski-alpine-chess-open",
+      "remove": "davos-ski-open"
+    },
+    {
+      "keep": "davos-ski-alpine-chess-open",
+      "remove": "davos-swiss-ski-open-2026-11"
+    },
+    {
+      "keep": "primo-rapid-a-squadre-trofeo-utensildodi",
+      "remove": "op-rapid-a-squadre-trofeo-utensildodi"
+    },
+    {
+      "keep": "mezz-ora-per-il-matto",
+      "remove": "op-rapid-mezz-ora-per-il-matto"
+    },
+    {
+      "keep": "33-torneo-del-graticolato",
+      "remove": "fe-33-del-graticolato-b"
+    },
+    {
+      "keep": "33-torneo-del-graticolato",
+      "remove": "fe-33-del-graticolato-a"
+    },
+    {
+      "keep": "schaffhausen-2days",
+      "remove": "1st-schaffhausen-2days-open-2026"
+    },
+    {
+      "keep": "roma-citta-aperta-7th-international-chess-festival-2026",
+      "remove": "roma-citta-aperta-7-international-chess-festival-2026"
+    },
+    {
+      "keep": "roma-citta-aperta-7th-international-chess-festival-2026",
+      "remove": "fe-7-roma-citta-aperta-master"
+    },
+    {
+      "keep": "roma-citta-aperta-7th-international-chess-festival-2026",
+      "remove": "fe-7-roma-citta-aperta-seniores"
+    },
+    {
+      "keep": "roma-citta-aperta-7th-international-chess-festival-2026",
+      "remove": "fe-7-roma-citta-aperta-b"
+    },
+    {
+      "keep": "roma-citta-aperta-7th-international-chess-festival-2026",
+      "remove": "fe-7-roma-citta-aperta-a"
+    },
+    {
+      "keep": "torneo-103-rapid-veloce-club-pinerolo-torneo-ufficiale-12-3",
+      "remove": "op-103-rapid-veloce-club"
+    },
+    {
+      "keep": "18th-northwick-park-congress",
+      "remove": "18th-northwick-park-congress-minor-u1500"
+    },
+    {
+      "keep": "18th-northwick-park-congress",
+      "remove": "18th-northwick-park-congress-major-u1860"
+    },
+    {
+      "keep": "18th-northwick-park-congress",
+      "remove": "18th-northwick-park-congress-rated-friendlies"
+    },
+    {
+      "keep": "18th-northwick-park-congress",
+      "remove": "18th-northwick-park-congress-u2400"
+    },
+    {
+      "keep": "roma-citta-aperta-2026-torneo-a-squadre",
+      "remove": "op-2-rapid-a-squadre-trofeo-lorenzo-castellano-collaterale-al-fe-7-roma-citta-aperta"
+    },
+    {
+      "keep": "torneo-sociale-scacchi-al-filo-2026",
+      "remove": "op-3-scacchi-al-filo"
+    },
+    {
+      "keep": "le-muse-scacchi-fest-seconda-edizione",
+      "remove": "we-2-le-muse-scacchi-fest-c"
+    },
+    {
+      "keep": "le-muse-scacchi-fest-seconda-edizione",
+      "remove": "we-2-le-muse-scacchi-fest-b"
+    },
+    {
+      "keep": "le-muse-scacchi-fest-seconda-edizione",
+      "remove": "we-2-le-muse-scacchi-fest-a"
+    },
+    {
+      "keep": "33-festival-internazionale-grand-hotel-adriatico",
+      "remove": "we-32-grand-hotel-adriatico-c"
+    },
+    {
+      "keep": "33-festival-internazionale-grand-hotel-adriatico",
+      "remove": "we-32-grand-hotel-adriatico-b"
+    },
+    {
+      "keep": "33-festival-internazionale-grand-hotel-adriatico",
+      "remove": "we-32-grand-hotel-adriatico-a"
+    },
+    {
+      "keep": "berghem-aan-zee",
+      "remove": "we-berghem-aan-zee-girone-2"
+    },
+    {
+      "keep": "athens-of-the-east-6th-international-grandmaster-open-2026",
+      "remove": "athens-of-the-east-6th-international-grandmaster-open-chess-tournament"
+    },
+    {
+      "keep": "pune-grand-slam-chess-festival-2026-classical-rapid-blitz",
+      "remove": "pune-grand-slam-chess-festival-classical"
+    },
+    {
+      "keep": "basel-xmas-festival",
+      "remove": "xmas-festival-2026"
+    },
+    {
+      "keep": "basel-xmas-festival",
+      "remove": "basel-xmas-festival-2026-expert"
+    },
+    {
+      "keep": "i-torneo-internazionale-di-scacchi-comune-di-capriolo-in-franciacorta",
+      "remove": "we-comune-di-capriolo-in-franciacorta-c"
+    },
+    {
+      "keep": "i-torneo-internazionale-di-scacchi-comune-di-capriolo-in-franciacorta",
+      "remove": "we-comune-di-capriolo-in-franciacorta-b"
+    },
+    {
+      "keep": "i-torneo-internazionale-di-scacchi-comune-di-capriolo-in-franciacorta",
+      "remove": "we-comune-di-capriolo-in-franciacorta-a"
+    },
+    {
+      "keep": "38-festival-comune-di-robecchetto-con-induno",
+      "remove": "we-38-comune-di-robecchetto-con-induno-c"
+    },
+    {
+      "keep": "38-festival-comune-di-robecchetto-con-induno",
+      "remove": "we-38-comune-di-robecchetto-con-induno-a"
+    },
+    {
+      "keep": "38-festival-comune-di-robecchetto-con-induno",
+      "remove": "we-38-comune-di-robecchetto-con-induno-b"
+    },
+    {
+      "keep": "sheffield-fide-christmas-congress-hampton-by-hilton",
+      "remove": "sheffield-fide-christmas-congress-2026-u2150"
+    },
+    {
+      "keep": "v-torneo-dell-epifania-citta-di-battipaglia",
+      "remove": "fe-5-dell-epifania"
+    },
+    {
+      "keep": "x-open-internazionale-di-verona",
+      "remove": "fe-verona-2027"
+    },
+    {
+      "keep": "52o-abierto-internacional-ciudad-de-sevilla-2027",
+      "remove": "52-abierto-internacional-ciudad-de-sevilla-2027"
+    },
+    {
+      "keep": "1st-akshaya-international-grandmaster-open-chess-tournament-2027",
+      "remove": "akshaya-international-grandmaster-open-chess-tournament-2027"
+    },
+    {
+      "keep": "4ncl-huddersfield-congress-2027",
+      "remove": "4ncl-huddersfield-congress-2027-open"
+    },
+    {
+      "keep": "4ncl-huddersfield-congress-2027",
+      "remove": "4ncl-huddersfield-congress-2027-rated-friendlies"
+    },
+    {
+      "keep": "22nd-delhi-international-open-grandmasters-chess-tournament-2027",
+      "remove": "delhi-international-open-grandmasters-chess-tournament-2027"
+    },
+    {
+      "keep": "36th-nottingham-rapidplay",
+      "remove": "36th-nottingham-rapidplay-2027-rated-friendlies"
+    },
+    {
+      "keep": "36th-nottingham-rapidplay",
+      "remove": "36th-nottingham-rapidplay-2027-major-u1900"
+    },
+    {
+      "keep": "36th-nottingham-rapidplay",
+      "remove": "36th-nottingham-rapidplay-2027-intermediate-u1700"
+    },
+    {
+      "keep": "36th-nottingham-rapidplay",
+      "remove": "36th-nottingham-rapidplay-2027-minor-u1500"
+    },
+    {
+      "keep": "36th-nottingham-rapidplay",
+      "remove": "36th-nottingham-rapidplay-2027-improvers-u1300"
+    },
+    {
+      "keep": "50th-nottingham-congress",
+      "remove": "50th-nottingham-congress-2027-major-u1900"
+    },
+    {
+      "keep": "50th-nottingham-congress",
+      "remove": "50th-nottingham-congress-2027-inter-u1700"
+    },
+    {
+      "keep": "50th-nottingham-congress",
+      "remove": "50th-nottingham-congress-2027-minor-u1500"
+    },
+    {
+      "keep": "50th-nottingham-congress",
+      "remove": "50th-nottingham-congress-2027-rated-friendlies"
+    },
+    {
+      "keep": "50th-nottingham-congress",
+      "remove": "50th-nottingham-congress-2027-open"
+    },
+    {
+      "keep": "50th-nottingham-congress",
+      "remove": "50th-nottingham-congress-2027-improvers-u1300"
+    },
+    {
+      "keep": "open-nk-rapid",
+      "remove": "open-dutch-rapid-championship-2027"
+    }
+  ]
+}
