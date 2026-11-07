@@ -229,6 +229,20 @@ const normalizeExternalLinks = (links, errors) =>
     })
     .filter(Boolean);
 
+const normalizeRelatedCoverage = (coverage, errors) =>
+  normalizeArray(coverage)
+    .slice(0, 20)
+    .map((entry) => {
+      const url = cleanUrl(entry?.url, "relatedCoverage.url", errors);
+      if (!url) return null;
+      return {
+        sourceName: trimString(entry.sourceName, 180),
+        url,
+        relationship: trimString(entry.relationship, 80)
+      };
+    })
+    .filter(Boolean);
+
 const normalizeEventSubmission = (item, checkedAt) => {
   const errors = [];
   rejectFullTextFields(item, errors);
@@ -333,7 +347,7 @@ const normalizeNewsSubmission = (item, checkedAt) => {
     tags: cleanStringArray(item.tags, 20, 80),
     relatedTournamentName: trimString(item.relatedTournamentName, 220),
     relatedPlayerNames: cleanStringArray(item.relatedPlayerNames, 20, 160),
-    relatedCoverage: normalizeArray(item.relatedCoverage).slice(0, 20),
+    relatedCoverage: normalizeRelatedCoverage(item.relatedCoverage, errors),
     originalId: trimString(item.originalId, 240),
     confidence,
     qualityFlags,
@@ -506,7 +520,10 @@ const decideSubmission = async (submission, now = new Date()) => {
   }
   if (await newsDuplicateExists(item)) reasons.push("duplicate news already exists");
 
-  if (reasons.length === 0) return { action: "publish", reasons: ["accepted for weekly auto-publication"] };
+  // Anyone can submit without an account and declares their own confidence, so
+  // passing these rules proves nothing about the story. Nothing verifies public
+  // news yet, so it waits for a person instead of going live on its own.
+  if (reasons.length === 0) return { action: "quarantined", reasons: ["public news waits for human review"] };
   const status = reasons.some((reason) => reason.includes("confidence") || reason.includes("quality flag"))
     ? "quarantined"
     : "rejected";

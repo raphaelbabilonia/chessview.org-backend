@@ -8,7 +8,7 @@ const Registration = require("../models/Registration");
 const EventDocument = require("../models/EventDocument");
 const calculateStandings = require("../utils/calculateStandings");
 const { canManageEvent, canViewEvent, publicEventStatuses } = require("../utils/permissions");
-const { eventListItem, isIndexableEvent, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
+const { eventListItem, isIndexableEvent, publicEventLinks, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
 const slugify = require("../utils/slugify");
 const { excludeSyntheticTestEventsQuery, isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
 
@@ -391,6 +391,7 @@ const getEvent = async (req, res) => {
     success: true,
     data: {
       ...event,
+      ...publicEventLinks(event),
       organizer: manageable ? event.organizer : publicOrganizer(event.organizer),
       sections,
       players: safePlayers,

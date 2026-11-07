@@ -1,3 +1,5 @@
+const { safeHttpUrl, safeLinks } = require("./safeUrl");
+
 const toPlain = (value) => (value?.toObject ? value.toObject() : value || null);
 
 const publicOrganizer = (organizer) => {
@@ -40,6 +42,15 @@ const publicPlayer = (player) => {
     updatedAt: value.updatedAt
   };
 };
+
+// Old records can hold links from before ingest checked them; never publish those.
+const publicEventLinks = (event) => ({
+  websiteUrl: safeHttpUrl(event.websiteUrl),
+  resultsUrl: safeHttpUrl(event.resultsUrl),
+  regulationsUrl: safeHttpUrl(event.regulationsUrl),
+  source: { ...(event.source || {}), url: safeHttpUrl(event.source?.url) },
+  externalLinks: safeLinks(event.externalLinks)
+});
 
 const isPlainObject = (value) =>
   value && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
@@ -90,6 +101,7 @@ const metadataSummaryFor = (metadata = {}) => {
 const eventListItem = (event) => {
   const value = toPlain(event);
   if (!value) return null;
+  const links = publicEventLinks(value);
   return {
     _id: value._id,
     title: value.title || "",
@@ -107,11 +119,8 @@ const eventListItem = (event) => {
     region: value.region || "",
     location: value.location || {},
     sourceOrganizerName: value.sourceOrganizerName || "",
-    websiteUrl: value.websiteUrl || "",
-    resultsUrl: value.resultsUrl || "",
-    regulationsUrl: value.regulationsUrl || "",
-    source: value.source || {},
-    externalLinks: Array.isArray(value.externalLinks) ? value.externalLinks.slice(0, 20) : [],
+    ...links,
+    externalLinks: links.externalLinks.slice(0, 20),
     dataQualityScore: value.dataQualityScore || 0,
     metadataSummary: metadataSummaryFor(value.metadata),
     createdAt: value.createdAt,
@@ -143,6 +152,7 @@ module.exports = {
   eventListItem,
   isIndexableEvent,
   metadataSummaryFor,
+  publicEventLinks,
   publicOrganizer,
   publicPlayer
 };

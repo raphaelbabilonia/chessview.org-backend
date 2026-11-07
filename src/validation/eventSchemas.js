@@ -1,4 +1,11 @@
 const { z } = require("zod");
+const { safeHttpUrl } = require("../utils/safeUrl");
+
+const webUrl = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine((value) => value === "" || safeHttpUrl(value), { message: "Must be an http or https URL" });
 
 const longitude = z.number().finite().min(-180).max(180);
 const latitude = z.number().finite().min(-90).max(90);
@@ -39,9 +46,9 @@ const fields = {
   ratingType: z.enum(["", "FIDE", "national", "unrated"]).optional(),
   maxPlayers: z.number().int().nonnegative().optional(),
   contactEmail: z.union([z.string().email(), z.literal("")]).optional(),
-  websiteUrl: z.string().optional(),
-  resultsUrl: z.string().optional(),
-  regulationsUrl: z.string().optional(),
+  websiteUrl: webUrl.optional(),
+  resultsUrl: webUrl.optional(),
+  regulationsUrl: webUrl.optional(),
   metadata: z.record(z.string(), z.any()).optional(),
   isPublic: z.boolean().optional()
 };

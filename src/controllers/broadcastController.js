@@ -41,6 +41,9 @@ const findDeviceByPublicId = async (deviceId) => {
   return Device.findOne({ deviceId });
 };
 
+// Devices belong to the organizer who registered them; admins can see them all.
+const manageableDevices = (user) => (user.role === "admin" ? {} : { owner: user._id });
+
 const authenticateDevice = async (req) => {
   const deviceId = req.get("X-Device-Id");
   const deviceSecret = req.get("X-Device-Secret");
@@ -64,6 +67,15 @@ const authenticateDevice = async (req) => {
   }
 
   return { device };
+};
+
+// Runs from the headers alone, before any body is read, so a caller without valid
+// device credentials cannot make the server parse or store an upload.
+const requireDevice = async (req, res, next) => {
+  const { device, error } = await authenticateDevice(req);
+  if (error) return res.status(error.status).json({ success: false, message: error.message });
+  req.device = device;
+  next();
 };
 
 // Merge telemetry from a heartbeat *or* a frame upload onto the device. Only
@@ -109,6 +121,7 @@ const createDevice = async (req, res) => {
   const device = await Device.create({
     deviceId,
     name,
+    owner: req.user._id,
     secretHash,
     firmwareVersion: req.body.firmwareVersion || "",
     notes: req.body.notes || ""
@@ -123,7 +136,7 @@ const createDevice = async (req, res) => {
 };
 
 const listDevices = async (req, res) => {
-  const devices = await Device.find().sort({ createdAt: -1 }).lean();
+  const devices = await Device.find(manageableDevices(req.user)).sort({ createdAt: -1 }).lean();
   res.json({ success: true, data: devices.map(publicDevice) });
 };
 
@@ -133,10 +146,11 @@ const updateDevice = async (req, res) => {
   if (req.body.notes !== undefined) updates.notes = req.body.notes;
   if (req.body.status !== undefined) updates.status = req.body.status;
 
-  const device = await Device.findOneAndUpdate({ deviceId: req.params.deviceId }, updates, {
-    new: true,
-    runValidators: true
-  });
+  const device = await Device.findOneAndUpdate(
+    { deviceId: req.params.deviceId, ...manageableDevices(req.user) },
+    updates,
+    { new: true, runValidators: true }
+  );
   if (!device) return res.status(404).json({ success: false, message: "Device not found" });
   res.json({ success: true, data: publicDevice(device) });
 };
@@ -147,7 +161,7 @@ const startBroadcast = async (req, res) => {
   if (!pairing) return res.status(404).json({ success: false, message: "Pairing not found" });
   const [event, device] = await Promise.all([
     Event.findById(pairing.event),
-    Device.findOne({ deviceId: req.body.deviceId })
+    Device.findOne({ deviceId: req.body.deviceId, ...manageableDevices(req.user) })
   ]);
   if (!canManageEvent(req.user, event)) {
     return res.status(403).json({ success: false, message: "You can only manage your own events" });
@@ -255,8 +269,7 @@ const detectAnomalies = (data) => {
 };
 
 const deviceHeartbeat = async (req, res) => {
-  const { device, error } = await authenticateDevice(req);
-  if (error) return res.status(error.status).json({ success: false, message: error.message });
+  const { device } = req;
 
   const parsed = parseBody(heartbeatSchema, req.body);
   if (parsed.error) {
@@ -289,11 +302,7 @@ const frameResponse = (frame, deduplicated) => ({
 });
 
 const deviceFrameUpload = async (req, res) => {
-  const { device, error } = await authenticateDevice(req);
-  if (error) {
-    removeUploadedFile(req.file);
-    return res.status(error.status).json({ success: false, message: error.message });
-  }
+  const { device } = req;
 
   if (!req.file) {
     return res.status(400).json({ success: false, message: "JPEG image file is required" });
@@ -396,6 +405,7 @@ module.exports = {
   endBroadcast,
   getPairingBroadcast,
   listBroadcastFrames,
+  requireDevice,
   deviceHeartbeat,
   deviceFrameUpload
 };

@@ -7,7 +7,7 @@ const sideEnum = z.enum(["white", "black", "unknown"]);
 const createDeviceSchema = z.object({
   deviceId: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1).optional(),
-  deviceSecret: z.string().min(1).optional(),
+  deviceSecret: z.string().min(24).max(72).optional(),
   firmwareVersion: z.string().optional(),
   notes: z.string().optional()
 });
