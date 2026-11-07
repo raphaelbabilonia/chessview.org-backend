@@ -5,7 +5,7 @@ const deviceSchema = new mongoose.Schema(
     deviceId: { type: String, required: true, unique: true, trim: true },
     // The organizer who registered the device. Devices from before ownership
     // existed have none, so only an admin can manage them.
-    owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     name: { type: String, required: true, trim: true },
     secretHash: { type: String, required: true },
     firmwareVersion: { type: String, default: "" },
