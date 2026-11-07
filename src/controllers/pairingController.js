@@ -24,11 +24,15 @@ const addPairing = async (req, res) => {
     Player.findById(whitePlayer),
     req.body.blackPlayer ? Player.findById(req.body.blackPlayer) : Promise.resolve(null)
   ]);
-  if (!white || (req.body.blackPlayer && !black)) {
-    return res.status(404).json({ success: false, message: "Player not found" });
-  }
   if (!canManageEvent(req.user, event)) {
     return res.status(403).json({ success: false, message: "You can only manage your own events" });
+  }
+  // Both players must already be in this round's section: an organizer must not be
+  // able to pull a player from someone else's event into their own pairings.
+  const inSection = (player) =>
+    String(player.event) === String(round.event) && String(player.section) === String(round.section);
+  if (!white || !inSection(white) || (req.body.blackPlayer && (!black || !inSection(black)))) {
+    return res.status(404).json({ success: false, message: "Player not found" });
   }
   const pairing = await Pairing.create({
     ...req.body,

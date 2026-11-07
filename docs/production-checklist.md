@@ -57,7 +57,7 @@ The backend workflow assumes CloudPanel has a Node.js site for `api.chessview.or
 - The public endpoint is `POST /api/agent-collaboration/submissions`; it queues submissions only and does not require `AGENT_PUBLISH_TOKEN`.
 - Keep `AGENT_COLLABORATION_SALT` private so request IP/user-agent hashes cannot be compared across environments.
 - Run the weekly review as a dry run first: `npm run agent:review-public`.
-- Production publish pass: `npm run agent:review-public -- --publish`.
+- Production pass: `npm run agent:review-public -- --publish`. It closes bad submissions and hands events to tournament review. Public news is quarantined for a person, because its confidence is self-declared; it is never published by this job.
 - Suggested schedule: Monday 03:00 Europe/Rome.
 - Keep `CHESSVIEW_API_BASE_URL` and `AGENT_PUBLISH_TOKEN` available to the review job if it should publish through the deployed private ingest endpoint.
 - Review logs for quarantined/rejected items before changing thresholds or accepting new source categories.

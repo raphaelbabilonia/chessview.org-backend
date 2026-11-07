@@ -117,6 +117,27 @@ describe("agentCollaborationController", () => {
     assert.equal(await AgentSubmission.countDocuments(), 0);
   });
 
+  it("rejects unsafe related coverage links and keeps only the known fields", async () => {
+    const unsafe = await client.json(
+      "POST",
+      "/api/agent-collaboration/submissions",
+      batch([{ ...newsItem, relatedCoverage: [{ sourceName: "Bad", url: "javascript:alert(1)" }] }])
+    );
+    assert.equal(unsafe.status, 422);
+    assert.ok(unsafe.body.rejected[0].reasons.some((reason) => reason.includes("relatedCoverage.url")));
+
+    const safe = await client.json(
+      "POST",
+      "/api/agent-collaboration/submissions",
+      batch([{ ...newsItem, relatedCoverage: [{ sourceName: "Good", url: "https://example.org/more", extra: { $ne: 1 } }] }])
+    );
+    assert.equal(safe.status, 202);
+    const stored = await AgentSubmission.findOne({ kind: "news" }).lean();
+    assert.deepEqual(stored.normalized.relatedCoverage, [
+      { sourceName: "Good", url: "https://example.org/more", relationship: "" }
+    ]);
+  });
+
   it("serves machine-readable OpenAPI and submission schema documents", async () => {
     const openApi = await client.request("/api/agent-collaboration/openapi.json");
     const schema = await client.request("/api/agent-collaboration/schema.json");
@@ -127,22 +148,25 @@ describe("agentCollaborationController", () => {
     assert.equal(schema.body.title, "ChessView Agent Collaboration Submission");
   });
 
-  it("routes tournament submissions to shared review while news keeps its existing publisher", async () => {
+  it("routes tournament submissions to shared review and holds public news for a person", async () => {
     const res = await client.json("POST", "/api/agent-collaboration/submissions", batch([eventItem, newsItem]));
     assert.equal(res.status, 202);
 
+    const publisher = () => assert.fail("a public submission must not reach the publisher");
     const review = await reviewPublicAgentSubmissions({
       dryRun: false,
       now: new Date("2026-07-05T12:00:00.000Z"),
-      reviewRunId: "integration-public-review"
+      reviewRunId: "integration-public-review",
+      publisher
     });
 
-    assert.equal(review.accepted, 1);
+    assert.equal(review.accepted, 0);
     assert.equal(review.deferredEvents.length, 1);
     assert.equal(review.deferredEvents[0].title, eventItem.title);
     assert.equal(await Event.countDocuments({ title: eventItem.title }), 0);
-    assert.equal(await NewsItem.countDocuments({ title: newsItem.title }), 1);
-    assert.equal(await AgentSubmission.countDocuments({ status: "published" }), 1);
+    assert.equal(await NewsItem.countDocuments({ title: newsItem.title }), 0);
+    assert.equal(await AgentSubmission.countDocuments({ status: "published" }), 0);
+    assert.equal(await AgentSubmission.countDocuments({ kind: "news", status: "quarantined" }), 1);
     assert.equal(await AgentSubmission.countDocuments({ kind: "event", status: "queued" }), 1);
   });
 

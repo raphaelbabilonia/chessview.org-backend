@@ -5,6 +5,7 @@ const NewsItem = require("../models/NewsItem");
 const User = require("../models/User");
 const { REQUIRED_NEWS_IMAGE_REASON, hasRequiredNewsImage } = require("../utils/newsImagePolicy");
 const slugify = require("../utils/slugify");
+const { safeHttpUrl, safeLinks } = require("../utils/safeUrl");
 const { isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
 const { canonicalCountryName } = require("../utils/countryNames");
 const {
@@ -316,12 +317,23 @@ const sourceAuthority = (item = {}) => {
   return 250;
 };
 
+// Scraped pages decide these values, so a link that is not a web link is dropped
+// rather than trusted. A bad sourceUrl empties it, which rejects the item later.
+const withWebLinks = (item) => {
+  const clean = { ...item };
+  for (const field of ["websiteUrl", "registrationUrl", "resultsUrl", "regulationsUrl"]) {
+    if (item[field] !== undefined) clean[field] = safeHttpUrl(item[field]);
+  }
+  if (item.externalLinks !== undefined) clean.externalLinks = safeLinks(item.externalLinks);
+  return clean;
+};
+
 const normalizeTournamentInput = (item = {}) => {
   const normalized = {
-    ...item,
+    ...withWebLinks(item),
     title: trimString(item.title),
     sourceName: trimString(item.sourceName),
-    sourceUrl: normalizeUrl(item.sourceUrl),
+    sourceUrl: normalizeUrl(safeHttpUrl(item.sourceUrl)),
     originalId: trimString(item.originalId),
     city: trimString(item.city),
     country: canonicalCountryName(item.country),
@@ -485,8 +497,9 @@ const newsQuery = (item) => {
 };
 
 const normalizeNewsInput = (item = {}) => {
-  const sourceUrl = firstString(item.sourceUrl, item.url, item.canonicalUrl, "");
-  const canonicalUrl = firstString(item.canonicalUrl, item.url, item.sourceUrl, "");
+  const [itemSourceUrl, itemUrl, itemCanonicalUrl] = [item.sourceUrl, item.url, item.canonicalUrl].map(safeHttpUrl);
+  const sourceUrl = firstString(itemSourceUrl, itemUrl, itemCanonicalUrl, "");
+  const canonicalUrl = firstString(itemCanonicalUrl, itemUrl, itemSourceUrl, "");
   const title = trimString(item.title);
   const sourceName = firstString(item.sourceName, sourceNameFromUrl(sourceUrl), "Unknown source");
   const slug = trimString(item.slug) || slugify(title || canonicalUrl || sourceName, { fallback: "news", maxLength: 120 });
@@ -502,7 +515,7 @@ const normalizeNewsInput = (item = {}) => {
     slug,
     summary,
     sourceName,
-    sourceHomeUrl: firstString(item.sourceHomeUrl, originFromUrl(canonicalUrl || sourceUrl)),
+    sourceHomeUrl: firstString(safeHttpUrl(item.sourceHomeUrl), originFromUrl(canonicalUrl || sourceUrl)),
     sourceUrl,
     canonicalUrl,
     url: canonicalUrl || sourceUrl,
@@ -515,7 +528,7 @@ const normalizeNewsInput = (item = {}) => {
     tags: normalizeArray(item.tags).map(trimString).filter(Boolean),
     relatedPlayerIds: normalizeArray(item.relatedPlayerIds).map(trimString).filter(Boolean),
     relatedPlayerNames: normalizeArray(item.relatedPlayerNames).map(trimString).filter(Boolean),
-    relatedCoverage: normalizeArray(item.relatedCoverage),
+    relatedCoverage: safeLinks(item.relatedCoverage),
     confidence: finiteNumber(item.confidence, 0.75),
     qualityFlags: normalizeArray(item.qualityFlags).map(trimString).filter(Boolean),
     evidenceRefs: normalizeArray(item.evidenceRefs),

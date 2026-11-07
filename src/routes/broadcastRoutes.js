@@ -10,6 +10,7 @@ const {
   getPairingBroadcast,
   listBroadcastFrames,
   listDevices,
+  requireDevice,
   startBroadcast,
   updateDevice,
   uploadRoot
@@ -36,7 +37,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 },
+  // One image plus the text fields of frameUploadSchema, which are all short.
+  limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 32, parts: 33, fieldSize: 2048 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype !== "image/jpeg") {
       const err = new Error("Only JPEG images are accepted");
@@ -96,7 +98,7 @@ router.post("/broadcasts/:broadcastId/end", ...manageRoles, validateObjectId("br
 router.get("/pairings/:pairingId/broadcast", optionalAuthMiddleware, validateObjectId("pairingId"), getPairingBroadcast);
 router.get("/broadcasts/:broadcastId/frames", optionalAuthMiddleware, validateObjectId("broadcastId"), listBroadcastFrames);
 
-router.post("/device/heartbeat", deviceHeartbeat);
-router.post("/device/frames", uploadFrame, deviceFrameUpload);
+router.post("/device/heartbeat", requireDevice, deviceHeartbeat);
+router.post("/device/frames", requireDevice, uploadFrame, deviceFrameUpload);
 
 module.exports = router;
