@@ -1,0 +1,26 @@
+{
+  "standard": "kingdom-deploy/1",
+  "app": "chessview-api",
+  "project": "Chess View",
+  "realm": "Mix",
+  "kind": "node-service",
+  "target": "KVM8, api.chessview.org (systemd hoc-chessview-api)",
+  "health": "https://api.chessview.org/api/ready; revision at /api/health (deploymentSha)",
+  "rollback": "automatic: hoc-chessview-release restores the previous release if /api/ready fails; kingdom-deploy re-releases the previous artifact if the public check fails",
+  "runtime": { "node": "24.19.0" },
+  "skip_when_only": [".github/", "docs/", "README.md", "CONTRIBUTING.md"],
+  "env": {
+    "MONGOMS_SYSTEM_BINARY": "/usr/bin/mongod",
+    "MONGOMS_DISABLE_POSTINSTALL": "1"
+  },
+  "install": ["npm ci", "npm audit --audit-level=moderate"],
+  "check": ["npm test", "npm run check:syntax"],
+  "build": [
+    "npm prune --omit=dev --no-audit",
+    "printf '%s\n' \"$KINGDOM_REVISION\" > .deployment-sha"
+  ],
+  "package": {
+    "from": ".",
+    "exclude": ["uploads", "Codex Tournament Pipeline", "coverage", "test", "test-helpers", "docs", "README.md", ".gitignore", "kingdom-deploy.json"]
+  }
+}
