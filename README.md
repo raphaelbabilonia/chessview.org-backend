@@ -1,6 +1,5 @@
 # ChessView.org Backend
 
-[![CI](https://github.com/raphaelbabilonia/chessview.org-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/raphaelbabilonia/chessview.org-backend/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/raphaelbabilonia/chessview.org-backend/graph/badge.svg)](https://codecov.io/gh/raphaelbabilonia/chessview.org-backend)
 
 ChessView is an open source platform for making physical chess events easier to publish, follow, and manage. This repository contains the Express API for the ChessView MVP.
@@ -279,3 +278,12 @@ ChessView is a clean-room rebuild inspired by common chess tournament workflows.
 This project source code is licensed under the GNU Affero General Public License v3.0 only. See [LICENSE](./LICENSE).
 
 The code license does not grant rights to ChessView trademarks, brand assets, production data, curated datasets, AI/analytics assets, private infrastructure, or hosted-service data. See [OPEN_SOURCE_POLICY.md](./OPEN_SOURCE_POLICY.md).
+
+## Production Deployment
+
+Push to `main` is the release (Kingdom deploy standard, 25 Nov 2026). KVM8 pulls `main` every two minutes
+(`kingdom-deploy@chessview-api.timer`), runs gitleaks, `npm ci` and `npm audit`, then `npm test` (with the server's
+own MongoDB binary for `mongodb-memory-server`, no network) and `npm run check:syntax` in a sandbox, and hands the
+pruned package to `hoc-chessview-release api`, which keeps the server's `.env`, `uploads` and pipeline links, checks
+`/api/ready` and puts the previous release back if it fails. Everything it runs is in
+[`kingdom-deploy.json`](kingdom-deploy.json). The `CI` workflow (coverage to Codecov) is manual only.

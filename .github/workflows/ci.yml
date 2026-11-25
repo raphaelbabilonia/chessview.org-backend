@@ -1,9 +1,8 @@
 name: CI
 
+# Manual only since 25 Nov 2026: every push to main is tested on KVM8 before release (kingdom-deploy.json).
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
