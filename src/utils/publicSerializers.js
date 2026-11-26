@@ -52,6 +52,19 @@ const publicEventLinks = (event) => ({
   externalLinks: safeLinks(event.externalLinks)
 });
 
+// Pipeline bookkeeping is for the organizer and the operators. The public detail used to carry it
+// all, including how each source is read (transport and operation names in metadata.sourceAudit).
+const INTERNAL_EVENT_KEYS = ["dedupeKey", "canonicalFamilyKey", "sourceKeys", "sourceRefs", "__v"];
+const INTERNAL_METADATA_KEYS = ["sourceAudit", "reviewEvidence"];
+const publicEventDetail = (event) => {
+  const value = { ...(toPlain(event) || {}) };
+  for (const key of INTERNAL_EVENT_KEYS) delete value[key];
+  if (value.metadata && typeof value.metadata === "object" && !Array.isArray(value.metadata)) {
+    value.metadata = Object.fromEntries(Object.entries(value.metadata).filter(([key]) => !INTERNAL_METADATA_KEYS.includes(key)));
+  }
+  return value;
+};
+
 const isPlainObject = (value) =>
   value && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 
@@ -152,6 +165,7 @@ module.exports = {
   eventListItem,
   isIndexableEvent,
   metadataSummaryFor,
+  publicEventDetail,
   publicEventLinks,
   publicOrganizer,
   publicPlayer

@@ -193,6 +193,44 @@ describe("agentIngestController", () => {
     assert.equal(await Event.countDocuments({ dedupeKey: tournamentItem.dedupeKey }), 0);
   });
 
+  it("rejects a tournament that ends before it starts", async () => {
+    const res = await postIngest(client, "/api/agent-ingest/tournaments", {
+      runId: "backwards-dates",
+      items: [{ ...tournamentItem, endDate: "2026-10-01" }]
+    });
+    assert.equal(res.body.meta.created, 0);
+    assert.match(res.body.rejected[0].reasons.join(";"), /endDate is before startDate/);
+    assert.equal(await Event.countDocuments({ dedupeKey: tournamentItem.dedupeKey }), 0);
+    // An afternoon start and a date-only end on the same day are not backwards.
+    const sameDay = await postIngest(client, "/api/agent-ingest/tournaments", {
+      dryRun: true,
+      runId: "same-day",
+      items: [{ ...tournamentItem, startDate: "2026-10-10T16:00:00.000Z", endDate: "2026-10-10" }]
+    });
+    assert.equal(sameDay.body.meta.rejected, 0);
+  });
+
+  it("recognises the same tournament when the second source gives a start time", async () => {
+    await postIngest(client, "/api/agent-ingest/tournaments", { runId: "date-only", items: [tournamentItem] });
+    const timed = {
+      ...tournamentItem,
+      startDate: "2026-10-10T16:00:00.000Z",
+      endDate: "2026-10-12T18:00:00.000Z",
+      venue: "",
+      sourceName: "Timed Source",
+      sourceUrl: "https://timed.example.org/e/77",
+      websiteUrl: "https://timed.example.org/e/77",
+      registrationUrl: "",
+      resultsUrl: "",
+      originalId: "timed-77",
+      dedupeKey: "timed:77"
+    };
+    const res = await postIngest(client, "/api/agent-ingest/tournaments", { runId: "timed", items: [timed] });
+    assert.equal(res.body.meta.created, 0, "a start time must not hide the date-only record of the same day");
+    assert.equal(res.body.meta.merged + res.body.meta.updated + res.body.meta.rejected, 1);
+    assert.equal(await Event.countDocuments({ title: tournamentItem.title }), 1);
+  });
+
   it("rejects synthetic local-density tournament fixtures without writing", async () => {
     const syntheticFixture = {
       ...tournamentItem,

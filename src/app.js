@@ -85,7 +85,9 @@ const deviceLimiter = rateLimit({
 });
 
 app.use("/api", apiLimiter);
-app.use("/api/auth", authLimiter);
+// Only where credentials are tried. On the whole /api/auth path it also counted GET /auth/me, so a
+// signed-in organizer was locked out after twenty page loads.
+app.use(["/api/auth/login", "/api/auth/register"], authLimiter);
 app.use("/api/device", deviceLimiter);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false, limit: "64kb", parameterLimit: 100 }));

@@ -47,6 +47,28 @@ describe("eventController", () => {
       assert.ok("metadataSummary" in res.body.data[0]);
     });
 
+    it("matches a country name whole, and still searches a partial word", async () => {
+      await Event.updateOne({ slug: "chess-view-open-cuneo" }, { ...openPublic, country: "Oman", startDate: daysFromNow(10), endDate: daysFromNow(12) });
+      await Event.updateOne({ slug: "sunday-family-chess-festival" }, { ...openPublic, country: "Romania", startDate: daysFromNow(5), endDate: daysFromNow(6) });
+      const oman = await client.request("/api/events?country=oman");
+      assert.deepEqual(oman.body.data.map((event) => event.country), ["Oman"]);
+      assert.equal(oman.body.meta.total, 1);
+      const partial = await client.request("/api/events?country=roma");
+      assert.deepEqual(partial.body.data.map((event) => event.country), ["Romania"]);
+      const both = await client.request("/api/events?country=oma");
+      assert.equal(both.body.meta.total, 2);
+    });
+
+    it("answers an absurd page number with an empty page, not an error", async () => {
+      for (const page of ["1e30", "999999999999", "-5", "abc"]) {
+        const res = await client.request(`/api/events?limit=1&page=${page}`);
+        assert.equal(res.status, 200, page);
+        assert.ok(res.body.meta.page <= 10000);
+      }
+      const news = await client.request("/api/news?page=1e30");
+      assert.equal(news.status, 200);
+    });
+
     it("keeps the event card shape when ordered through the public list", async () => {
       await Event.updateOne({ slug: "chess-view-open-cuneo" }, { ...openPublic, startDate: daysFromNow(10), endDate: daysFromNow(12) });
       const res = await client.request("/api/events?limit=1&page=1");
@@ -312,6 +334,26 @@ describe("eventController", () => {
       assert.equal(res.status, 200);
       assert.equal(res.body.data.metadata.playerField.expectedPlayers, 90);
       assert.equal(res.body.data.metadata.historicalEditions[0].winner, "Previous Winner");
+    });
+
+    it("keeps pipeline bookkeeping out of the public detail and shows it to the owner", async () => {
+      await Event.collection.updateOne(
+        { slug: "chess-view-open-cuneo" },
+        { $set: {
+          dedupeKey: "italy|cuneo|2027-01-01|open",
+          canonicalFamilyKey: "family:v1:abc",
+          sourceKeys: ["source:vesus api:id:1"],
+          sourceRefs: [{ sourceKey: "source:vesus api:id:1", contentHash: "sha256:x" }],
+          metadata: { format: { rounds: 7 }, sourceAudit: { transport: "persisted-graphql-api" }, reviewEvidence: { model: "m" } }
+        } }
+      );
+      const anonymous = (await client.request("/api/events/chess-view-open-cuneo")).body.data;
+      for (const key of ["dedupeKey", "canonicalFamilyKey", "sourceKeys", "sourceRefs", "__v"]) assert.equal(key in anonymous, false, key);
+      assert.deepEqual(anonymous.metadata, { format: { rounds: 7 } });
+      assert.ok(anonymous.title && anonymous.slug && anonymous.source);
+      const owner = (await client.request("/api/events/chess-view-open-cuneo", { headers: { Authorization: `Bearer ${token}` } })).body.data;
+      assert.equal(owner.dedupeKey, "italy|cuneo|2027-01-01|open");
+      assert.equal(owner.metadata.sourceAudit.transport, "persisted-graphql-api");
     });
 
     it("resolves the same event by id", async () => {

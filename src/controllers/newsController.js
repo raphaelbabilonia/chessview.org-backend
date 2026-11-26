@@ -20,10 +20,11 @@ const pageMeta = (total, page, limit) => {
   return { page, pages, limit, hasNext: page < pages, hasPrev: page > 1 };
 };
 
+const MAX_PAGE = 10000;
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(Math.trunc(parsed), 1);
+  return Math.min(Math.max(Math.trunc(parsed), 1), MAX_PAGE);
 };
 
 const publicNewsQuery = {

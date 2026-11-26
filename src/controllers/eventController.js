@@ -8,11 +8,15 @@ const Registration = require("../models/Registration");
 const EventDocument = require("../models/EventDocument");
 const calculateStandings = require("../utils/calculateStandings");
 const { canManageEvent, canViewEvent, publicEventStatuses } = require("../utils/permissions");
-const { eventListItem, isIndexableEvent, publicEventLinks, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
+const { eventListItem, isIndexableEvent, publicEventDetail, publicEventLinks, publicOrganizer, publicPlayer } = require("../utils/publicSerializers");
 const slugify = require("../utils/slugify");
 const { excludeSyntheticTestEventsQuery, isSyntheticTestEvent } = require("../utils/syntheticTestEvents");
 
 const MAX_PUBLIC_LIMIT = 100;
+// Far beyond the last real page, and small enough that skip stays a number MongoDB accepts.
+const MAX_PUBLIC_PAGE = 10000;
+const KNOWN_COUNTRIES_TTL_MS = process.env.NODE_ENV === "test" ? 0 : 5 * 60 * 1000;
+const CATALOG_CACHE_MS = process.env.NODE_ENV === "test" ? 0 : 60 * 1000;
 const MAX_TEXT_FILTER_LENGTH = 120;
 const SEASON_LONG_MS = 30 * 24 * 60 * 60 * 1000;
 const PUBLIC_SEARCH_FIELDS = ["title", "city", "country", "source.name"];
@@ -73,6 +77,20 @@ const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const literalRegex = (value) => new RegExp(escapeRegex(value), "i");
 
+const exactRegex = (value) => new RegExp(`^${escapeRegex(value)}$`, "i");
+
+// "Oman" used to list Romania, "Niger" Nigeria and "Guinea" Papua New Guinea, because the country
+// filter matched anywhere in the name. A value that is a country name in the data is matched whole;
+// anything else is still a partial search, so a visitor can type "ital".
+let knownCountries = { loadedAt: 0, names: new Set() };
+const isKnownCountry = async (value) => {
+  if (Date.now() - knownCountries.loadedAt >= KNOWN_COUNTRIES_TTL_MS) {
+    const names = await Event.distinct("country", { isPublic: true });
+    knownCountries = { loadedAt: Date.now(), names: new Set(names.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean)) };
+  }
+  return knownCountries.names.has(value.toLowerCase());
+};
+
 const queryDate = (value) => {
   const raw = firstQueryValue(value);
   if (!raw) return null;
@@ -118,7 +136,7 @@ const parsePositiveInt = (value, fallback) => {
 
 const paginationFromQuery = (query) => {
   const limit = Math.min(parsePositiveInt(query.limit, 50), MAX_PUBLIC_LIMIT);
-  const page = parsePositiveInt(query.page, 1);
+  const page = Math.min(parsePositiveInt(query.page, 1), MAX_PUBLIC_PAGE);
   return {
     enabled: true,
     limit,
@@ -219,7 +237,7 @@ const listEvents = async (req, res) => {
   if (textFilters.length) filter.$and = [...(filter.$and || []), ...textFilters];
   if (search && mine) filter.title = literalRegex(search);
   if (city) filter.city = literalRegex(city);
-  if (country) filter.country = literalRegex(country);
+  if (country) filter.country = (await isKnownCountry(country)) ? exactRegex(country) : literalRegex(country);
   if (source) filter["source.name"] = literalRegex(source);
   if (status) {
     filter.status = mine || publicEventStatuses.includes(status) ? status : "__not_public__";
@@ -268,7 +286,16 @@ const listEvents = async (req, res) => {
   return sendEventList(res, data, total, pagination);
 };
 
+// The catalog is the whole public calendar in one response (4.8 MB with past events) and feeds the
+// maps, the country pages and the sitemap. It is built at most once a minute per variant.
+const catalogCache = new Map();
+
 const listEventCatalog = async (req, res) => {
+  const cacheKey = `${booleanQuery(req.query.includePast)}|${booleanQuery(req.query.indexableOnly)}`;
+  const cached = catalogCache.get(cacheKey);
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  if (cached && Date.now() - cached.builtAt < CATALOG_CACHE_MS) return res.type("application/json").send(cached.body);
+
   const filter = {
     isPublic: true,
     status: { $in: publicEventStatuses },
@@ -355,12 +382,13 @@ const listEventCatalog = async (req, res) => {
   });
   const data = booleanQuery(req.query.indexableOnly) ? compactEvents.filter((event) => event.indexable) : compactEvents;
 
-  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-  return res.json({
+  const body = JSON.stringify({
     success: true,
     data,
     meta: { count: data.length }
   });
+  if (CATALOG_CACHE_MS > 0) catalogCache.set(cacheKey, { builtAt: Date.now(), body });
+  return res.type("application/json").send(body);
 };
 
 const getEvent = async (req, res) => {
@@ -390,7 +418,7 @@ const getEvent = async (req, res) => {
   res.json({
     success: true,
     data: {
-      ...event,
+      ...(manageable ? event : publicEventDetail(event)),
       ...publicEventLinks(event),
       organizer: manageable ? event.organizer : publicOrganizer(event.organizer),
       sections,

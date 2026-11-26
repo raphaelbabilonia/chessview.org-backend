@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Event = require("../models/Event");
 const Section = require("../models/Section");
 const Round = require("../models/Round");
@@ -10,7 +11,12 @@ const listRounds = async (req, res) => {
     return res.status(403).json({ success: false, message: "This event is not public" });
   }
   const filter = { event: req.params.eventId };
-  if (req.query.section) filter.section = req.query.section;
+  if (req.query.section) {
+    if (!mongoose.Types.ObjectId.isValid(String(req.query.section))) {
+      return res.status(400).json({ success: false, message: "Invalid section id" });
+    }
+    filter.section = req.query.section;
+  }
   const rounds = await Round.find(filter).sort({ number: 1 }).lean();
   res.json({ success: true, data: rounds });
 };

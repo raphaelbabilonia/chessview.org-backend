@@ -452,6 +452,8 @@ const hasMatchingSource = (existing, item) => {
   return item.sourceKeys.some((key) => storedKeys.has(key)) || isPrimarySource(existing, item);
 };
 
+const FAMILY_CANDIDATE_LIMIT = 300;
+
 const findTournamentMatch = async (item) => {
   const directQuery = tournamentQuery(item);
   const direct = directQuery ? await Event.findOne(directQuery) : null;
@@ -465,12 +467,16 @@ const findTournamentMatch = async (item) => {
 
   const start = asDate(item.startDate);
   if (!start) return { existing: null, match: "none" };
-  const nextDay = new Date(start);
+  // The whole UTC day. A window from the item's own time of day hid a date-only record (00:00) of
+  // the same tournament from an item with a start time (Vesus), and 25 unsorted rows were not all
+  // of a busy day: Italy alone has 25 events on some Sundays.
+  const dayStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const nextDay = new Date(dayStart);
   nextDay.setUTCDate(nextDay.getUTCDate() + 1);
   const candidates = await Event.find({
-    startDate: { $gte: start, $lt: nextDay },
+    startDate: { $gte: dayStart, $lt: nextDay },
     ...(item.country ? { country: { $regex: `^${escapeRegex(item.country)}$`, $options: "i" } } : {})
-  }).limit(25);
+  }).sort({ _id: 1 }).limit(FAMILY_CANDIDATE_LIMIT);
   // A review may clear this fuzzy comparison only for the events it names. Exact identity matches stay above.
   const reviewedDistinct = new Set(normalizeArray(item.reviewedDistinctFrom).map(String));
   const scored = candidates
@@ -731,6 +737,11 @@ const ingestTournaments = async ({ items, dryRun = false }) => {
       if (!query) reasons.push("missing dedupe key, original id, and source URL");
       if (!item.title || !item.startDate || !item.country || !item.sourceName || !item.sourceUrl) {
         reasons.push("missing required tournament fields");
+      }
+      // Seven FIDE records were stored ending before they started; such an event drops out of the
+      // upcoming list while it is still to come.
+      if (item.startDate && item.endDate && datePart(item.endDate) < datePart(item.startDate)) {
+        reasons.push("endDate is before startDate");
       }
       if (reasons.length) {
         result.rejected.push({ title: item.title || "", dedupeKey: item.dedupeKey || "", reasons });

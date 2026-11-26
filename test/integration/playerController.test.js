@@ -47,6 +47,15 @@ describe("playerController", () => {
       const res = await client.request("/api/events/not-an-object-id/players");
       assert.equal(res.status, 400);
     });
+
+    it("rejects a malformed section filter with 400 and accepts a real one", async () => {
+      const bad = await client.request(`/api/events/${eventId}/players?section=abc`);
+      assert.equal(bad.status, 400);
+      const rounds = await client.request(`/api/events/${eventId}/rounds?section=abc`);
+      assert.equal(rounds.status, 400);
+      const good = await client.request(`/api/events/${eventId}/players?section=${sectionId}`);
+      assert.equal(good.status, 200);
+    });
   });
 
   describe("POST /api/events/:eventId/players", () => {
