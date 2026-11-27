@@ -6,7 +6,7 @@ ChessView is an open source platform for making physical chess events easier to 
 
 The founding idea is to help clubs, academies, organizers, players, and spectators bring more over-the-board chess activity online. The current backend supports event management, registrations, manual tournament workflows, public pairings/results/standings, and early broadcast/device APIs for future camera-assisted game reconstruction.
 
-The frontend lives at [raphaelbabilonia/chessview.org-frontend](https://github.com/raphaelbabilonia/chessview.org-frontend).
+The public website lives at [raphaelbabilonia/chessview.org-next.js](https://github.com/raphaelbabilonia/chessview.org-next.js). (The earlier React/Vite frontend, `chessview.org-frontend`, was retired and archived on 27 Nov 2026.)
 
 ## Open Source And Commercial Boundaries
 
